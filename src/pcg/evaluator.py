@@ -2,16 +2,9 @@ import numpy as np
 from typing import Dict, List, Tuple
 from utils.config import PCG_CONFIG
 
-INSTANT_DEATH_THRESHOLD = 50  # Distance below which is considered instant death
-EXPECTED_LEVEL_LENGTH = 1000
-PROGRESSION_BINS = [
-    0,
-    200,
-    400,
-    600,
-    800,
-    1000,
-]  # Distance bins for progression analysis
+INSTANT_DEATH_THRESHOLD = 30
+EXPECTED_LEVEL_LENGTH = 500
+PROGRESSION_BINS = [0, 100, 200, 300, 400, 500]
 
 EPSILON = 1e-6
 
@@ -232,24 +225,21 @@ class LevelEvaluator:
             return (0.5, 0.5)
 
         if genome is not None:
+            bounds = PCG_CONFIG["genome_bounds"]
+            gap_min, gap_max = bounds["gap_size"]
+            coin_min, coin_max = bounds["coin_spawn_rate"]
+            powerup_min, powerup_max = bounds["powerup_spawn_rate"]
+
             gap_size = genome.get("gap_size")
-            # Normalize gap_size from [7, 14] to [1, 0] (tight to loose)
-            # gap_tightness = 1 means tight (gap=7), = 0 means loose (gap=14)
-            gap_tightness = (14 - gap_size) / (14 - 7)
+            gap_tightness = (gap_max - gap_size) / (gap_max - gap_min)
             gap_tightness = max(0.0, min(1.0, gap_tightness))
 
-            # Item richness: Based on coin + powerup spawn rates from genome
-            # Higher rates = more items = richer level
             coin_rate = genome.get("coin_spawn_rate")
             powerup_rate = genome.get("powerup_spawn_rate")
 
-            # Average of coin and powerup rates (both in [0.0, 1.0] range roughly)
-            # Coin rate: [0.2, 0.8], Powerup rate: [0.0, 0.4]
-            # Normalize to [0, 1]
-            coin_normalized = (coin_rate - 0.2) / (0.8 - 0.2)
-            powerup_normalized = powerup_rate / 0.4
+            coin_normalized = (coin_rate - coin_min) / (coin_max - coin_min)
+            powerup_normalized = (powerup_rate - powerup_min) / (powerup_max - powerup_min)
 
-            # Weighted average: coins matter more than powerups
             item_richness = 0.7 * coin_normalized + 0.3 * powerup_normalized
             item_richness = max(0.0, min(1.0, item_richness))
         else:

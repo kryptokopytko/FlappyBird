@@ -21,8 +21,8 @@ class LevelTester:
 
     def __init__(self):
         # Optimized settings for fast PCG evaluation
-        self.dt = 1.0 / 20  # 3x larger than normal (1/60) = 3x faster
-        self.test_duration = 4.0  # Seconds of simulation time
+        self.dt = 1.0 / 60  # Normal timestep (must match SIMULATION_DT in astar_bot.py)
+        self.test_duration = 10.0  # Seconds of simulation time
         self.bots = ["aggressive", "coin_collector"]  # Representative subset
 
     def test_genome(self, genome: LevelGenome) -> Dict[str, List[Dict]]:
