@@ -1,91 +1,46 @@
-"""Power-up and debuff entities."""
+POWERUP_SHIELD = "shield"
+POWERUP_SLOW_MOTION = "slow_motion"
+POWERUP_SMALL = "small"
+
+DEBUFF_SPEED_UP = "speed_up"
+DEBUFF_LARGE = "large"
+
+POWERUP_WIDTH = 5
+POWERUP_HEIGHT = 3
+
+DEBUFF_TYPES = {DEBUFF_SPEED_UP, DEBUFF_LARGE}
 
 
 class PowerUp:
-    """Represents a power-up or debuff."""
+    """Collectible powerup or debuff item."""
 
-    # Power-up types
-    SHIELD = 'shield'
-    SLOW_MOTION = 'slow_motion'
-    SMALL = 'small'
-
-    # Debuff types
-    SPEED_UP = 'speed_up'
-    LARGE = 'large'
-
-    def __init__(self, x, y, powerup_type):
-        """
-        Create a power-up.
+    def __init__(self, x: float, y: float, powerup_type: str):
+        """Initialize powerup/debuff.
 
         Args:
-            x: Horizontal position
-            y: Vertical position
-            powerup_type: Type of power-up (see class constants)
+            x: X position
+            y: Y position
+            powerup_type: Type of effect (shield, small, speed_up, large, etc.)
         """
         self.x = x
         self.y = y
         self.type = powerup_type
-        self.width = 5
-        self.height = 3
+        self.width = POWERUP_WIDTH
+        self.height = POWERUP_HEIGHT
         self.collected = False
-        self.duration = 10.0  # Duration in seconds
-        self.is_debuff = powerup_type in [self.SPEED_UP, self.LARGE]
+        self.is_debuff = powerup_type in DEBUFF_TYPES
 
-    def update(self, scroll_speed, dt):
-        """Update power-up position (scrolling)."""
+    def update(self, scroll_speed: float, dt: float) -> None:
+        """Update powerup position.
+
+        Args:
+            scroll_speed: Horizontal scroll speed
+            dt: Delta time in seconds
+        """
         self.x -= scroll_speed * dt
 
-    def is_offscreen(self):
-        """Check if power-up is off the left side of screen."""
+    def is_offscreen(self) -> bool:
         return self.x + self.width < 0
 
-    def get_hitbox(self):
-        """Get hitbox for collision detection."""
-        return {
-            'x': self.x,
-            'y': self.y,
-            'width': self.width,
-            'height': self.height
-        }
-
-    def render_ascii(self):
-        """Return ASCII art for the power-up."""
-        sprites = {
-            self.SHIELD: [
-                "╔═══╗",
-                "║ ◘ ║",
-                "╚═══╝"
-            ],
-            self.SLOW_MOTION: [
-                "╔═══╗",
-                "║ ⏱ ║",
-                "╚═══╝"
-            ],
-            self.SMALL: [
-                "╔═══╗",
-                "║ ↓ ║",
-                "╚═══╝"
-            ],
-            self.SPEED_UP: [
-                "╔═══╗",
-                "║ ⚡ ║",
-                "╚═══╝"
-            ],
-            self.LARGE: [
-                "╔═══╗",
-                "║ ↑ ║",
-                "╚═══╝"
-            ]
-        }
-        return sprites.get(self.type, ["[?]"])
-
-    def get_icon(self):
-        """Get single character icon for UI display."""
-        icons = {
-            self.SHIELD: '◘',
-            self.SLOW_MOTION: '⏱',
-            self.SMALL: '↓',
-            self.SPEED_UP: '⚡',
-            self.LARGE: '↑'
-        }
-        return icons.get(self.type, '?')
+    def get_hitbox(self) -> dict:
+        return {"x": self.x, "y": self.y, "width": self.width, "height": self.height}

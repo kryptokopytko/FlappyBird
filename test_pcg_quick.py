@@ -106,11 +106,12 @@ def test_evaluator():
     print(f"  Progression: {metrics['progression']:.3f}")
     print(f"  Control: {metrics['control']:.3f}")
 
-    # Test behavior features
-    difficulty, accessibility = evaluator.compute_behavior_features(test_results)
+    # Test behavior features (need genome for density calculation)
+    test_genome = LevelGenome()
+    difficulty, density = evaluator.compute_behavior_features(test_results, test_genome)
     print(f"\nBehavior features:")
     print(f"  Difficulty: {difficulty:.3f}")
-    print(f"  Accessibility: {accessibility:.3f}")
+    print(f"  Density: {density:.3f} (pipe_spacing={test_genome.get('pipe_spacing'):.1f})")
 
     print("\n✓ Evaluator works!")
 

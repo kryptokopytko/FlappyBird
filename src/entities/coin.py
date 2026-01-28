@@ -1,54 +1,47 @@
-"""Coin collectible entity."""
+COIN_SIZE = 3
+REGULAR_COIN_VALUE = 5
+GOLD_COIN_VALUE = 10
 
 
 class Coin:
-    """Represents a collectible coin."""
+    """Collectible coin that awards points."""
 
-    def __init__(self, x, y, value=5):
+    def __init__(self, x: float, y: float, value: int = REGULAR_COIN_VALUE):
         """
-        Create a coin.
-
         Args:
-            x: Horizontal position
-            y: Vertical position
-            value: Points value (5 for normal, 15 for gold)
+            x: X position
+            y: Y position
+            value: Point value (default 5, gold coins are 10)
         """
         self.x = x
         self.y = y
         self.value = value
-        self.width = 3
-        self.height = 3
+        self.width = COIN_SIZE
+        self.height = COIN_SIZE
         self.collected = False
-        self.is_gold = value > 5
+        self.is_gold = value > REGULAR_COIN_VALUE
 
-    def update(self, scroll_speed, dt):
-        """Update coin position (scrolling)."""
+    def update(self, scroll_speed: float, dt: float) -> None:
+        """Update coin position.
+
+        Args:
+            scroll_speed: Horizontal scroll speed
+            dt: Delta time in seconds
+        """
         self.x -= scroll_speed * dt
 
-    def is_offscreen(self):
-        """Check if coin is off the left side of screen."""
+    def is_offscreen(self) -> bool:
+        """Check if coin is off the left side of screen.
+
+        Returns:
+            True if offscreen
+        """
         return self.x + self.width < 0
 
-    def get_hitbox(self):
-        """Get hitbox for collision detection."""
-        return {
-            'x': self.x,
-            'y': self.y,
-            'width': self.width,
-            'height': self.height
-        }
+    def get_hitbox(self) -> dict:
+        """Get coin's collision hitbox.
 
-    def render_ascii(self):
-        """Return ASCII art for the coin."""
-        if self.is_gold:
-            return [
-                "╔══╗",
-                "║$$║",
-                "╚══╝"
-            ]
-        else:
-            return [
-                "╔═╗",
-                "║$║",
-                "╚═╝"
-            ]
+        Returns:
+            Dictionary with x, y, width, height
+        """
+        return {"x": self.x, "y": self.y, "width": self.width, "height": self.height}

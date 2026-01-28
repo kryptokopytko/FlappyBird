@@ -1,94 +1,96 @@
-"""Bird entity with physics."""
+"""Bird entity with physics and powerup management."""
 
 from utils.config import GAME_CONFIG
 
+BIRD_SIZES = {
+    "small": {"width": 4, "height": 2},
+    "normal": {"width": 5, "height": 3},
+    "large": {"width": 6, "height": 4},
+}
+
+HITBOX_SCALE = 0.8
+SPEED_DEBUFF_MULTIPLIER = 1.5
+
 
 class Bird:
-    """Represents the player's bird."""
-
     def __init__(self):
-        self.x = GAME_CONFIG['bird']['start_x']
-        self.y = float(GAME_CONFIG['bird']['start_y'])
+        self.x = GAME_CONFIG["bird"]["start_x"]
+        self.y = float(GAME_CONFIG["bird"]["start_y"])
         self.velocity = 0.0
-        self.gravity = GAME_CONFIG['bird']['gravity']
-        self.jump_force = GAME_CONFIG['bird']['jump_force']
-        self.terminal_velocity = GAME_CONFIG['bird']['terminal_velocity']
-        self.width = 5
-        self.height = 3
-        self.size = 'normal'
-        self.has_shield = False
-        self.lives = 3
-        self.animation_frame = 0
-        self.animation_timer = 0.0
+        self.gravity = GAME_CONFIG["bird"]["gravity"]
+        self.jump_force = GAME_CONFIG["bird"]["jump_force"]
+        self.terminal_velocity = GAME_CONFIG["bird"]["terminal_velocity"]
 
-    def update(self, dt):
-        """Update bird physics."""
+        self.size = "normal"
+        self.width = BIRD_SIZES["normal"]["width"]
+        self.height = BIRD_SIZES["normal"]["height"]
+        self.has_shield = False
+
+    def update(self, dt: float) -> None:
+        """
+        Args:
+            dt: Delta time in seconds
+        """
         self.velocity += self.gravity
         self.velocity = min(self.velocity, self.terminal_velocity)
         self.y += self.velocity * dt
-        self.animation_timer += dt
-        if self.animation_timer > 0.1:
-            self.animation_frame = (self.animation_frame + 1) % 3
-            self.animation_timer = 0.0
 
-    def jump(self):
-        """Make the bird jump (only if falling or stationary)."""
+    def jump(self) -> bool:
+        """
+        True if jump was executed, False otherwise
+        """
         if self.velocity >= 0:
             self.velocity = self.jump_force
             return True
         return False
 
-    def get_hitbox(self):
-        """Return the bird's hitbox for collision detection."""
-        # Use square hitbox (3x3) for better match with circular rendering
-        # Centered on bird position
-        hitbox_size = 3
-        offset_x = (self.width - hitbox_size) / 2
+    def get_hitbox(self) -> dict:
+        """
+        s            Dictionary with x, y, width, height of hitbox
+        """
+        hitbox_w = self.width * HITBOX_SCALE
+        hitbox_h = self.height * HITBOX_SCALE
 
-        # Clamp hitbox to valid screen bounds
-        # This prevents hitbox from going off-screen when bird is dying
-        hitbox_y = round(self.y)
-        hitbox_y = max(0, hitbox_y)  # Don't go above ceiling
-        hitbox_y = min(20, hitbox_y)  # Don't extend below ground (20 + 3 = 23)
+        offset_x = (self.width - hitbox_w) / 2
+        offset_y = (self.height - hitbox_h) / 2
+
+        hitbox_y = round(self.y + offset_y)
+        hitbox_y = max(
+            0, min(hitbox_y, GAME_CONFIG["screen"]["height"] - int(hitbox_h))
+        )
 
         return {
-            'x': self.x + offset_x,
-            'y': hitbox_y,
-            'width': hitbox_size,
-            'height': hitbox_size
+            "x": self.x + offset_x,
+            "y": hitbox_y,
+            "width": hitbox_w,
+            "height": hitbox_h,
         }
 
-    def is_out_of_bounds(self, screen_height):
-        """Check if bird is outside screen bounds."""
-        ground_level = screen_height - 1
-        # Use round() to match hitbox positioning
+    def is_out_of_bounds(self, screen_height: int) -> bool:
         rounded_y = round(self.y)
-        return rounded_y <= 0 or rounded_y + self.height > ground_level
+        return rounded_y <= 0 or rounded_y + self.height >= screen_height
 
-    def apply_powerup(self, powerup_type):
-        """Apply a power-up effect."""
-        if powerup_type == 'shield':
+    def apply_powerup(self, powerup_type: str) -> None:
+        if powerup_type == "shield":
             self.has_shield = True
-        elif powerup_type == 'small':
-            self.size = 'small'
-            self.height = 2
-            self.width = 4
+        elif powerup_type == "small":
+            self._set_size("small")
 
-    def apply_debuff(self, debuff_type):
-        """Apply a debuff effect."""
-        if debuff_type == 'large':
-            self.size = 'large'
-            self.height = 4
-            self.width = 6
-        elif debuff_type == 'speed':
-            self.gravity *= 1.5
+    def apply_debuff(self, debuff_type: str) -> None:
+        if debuff_type == "large":
+            self._set_size("large")
+        elif debuff_type == "speed":
+            self.gravity *= SPEED_DEBUFF_MULTIPLIER
 
-    def reset(self):
-        """Reset bird to starting state."""
-        self.y = float(GAME_CONFIG['bird']['start_y'])
+    def _set_size(self, size: str) -> None:
+        if size in BIRD_SIZES:
+            self.size = size
+            self.width = BIRD_SIZES[size]["width"]
+            self.height = BIRD_SIZES[size]["height"]
+
+    def reset(self) -> None:
+        self.y = float(GAME_CONFIG["bird"]["start_y"])
         self.velocity = 0.0
-        self.size = 'normal'
         self.has_shield = False
-        self.width = 5
-        self.height = 3
-        self.gravity = GAME_CONFIG['bird']['gravity']
+        self.gravity = GAME_CONFIG["bird"]["gravity"]
+        self._set_size("normal")

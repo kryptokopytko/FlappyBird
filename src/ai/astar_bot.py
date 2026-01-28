@@ -2,14 +2,43 @@
 
 import heapq
 
+# A* algorithm constants
+DEFAULT_LOOKAHEAD_STEPS = 7
+MAX_SEARCH_ITERATIONS = 40
+EARLY_TERMINATION_STEPS = 5
+EARLY_TERMINATION_SCORE = 20
+
+# Physics simulation constants (must match bird.py)
+SIMULATION_DT = 1.0 / 60.0
+GRAVITY = 1.0
+JUMP_FORCE = -22
+TERMINAL_VELOCITY = 40.0
+
+# Collision detection constants
+SCREEN_TOP = 0
+SCREEN_BOTTOM = 23
+BIRD_HITBOX_WIDTH = 4.0  # 5 * 0.8 (normal bird width * hitbox scale)
+BIRD_HITBOX_HEIGHT = 2.4  # 3 * 0.8 (normal bird height * hitbox scale)
+BIRD_HITBOX_OFFSET_X = 0.5  # (5 - 4.0) / 2
+BIRD_HITBOX_OFFSET_Y = 0.3  # (3 - 2.4) / 2
+PIPE_LOOKAHEAD_DISTANCE = 20
+SCREEN_MIDDLE_Y = 12
+PIPE_HITBOX_INSET = 1
+PIPE_CAP_INSET = 1
+PIPE_CAP_HEIGHT = 2
+PIPE_TOP_MARGIN = 1
+PIPE_BOTTOM_OFFSET = 2
+PIPE_TOP_OFFSET = 3
+
+# State discretization for closed set
+STATE_Y_PRECISION = 0.1
+STATE_VELOCITY_PRECISION = 0.1
+STATE_X_BUCKET_SIZE = 5
+
 
 class State:
-    """Represents a bird state for A* search."""
-
     def __init__(self, y, velocity, x_offset=0):
         """
-        Create a state.
-
         Args:
             y: Bird Y position (float)
             velocity: Bird velocity (float)
@@ -20,42 +49,26 @@ class State:
         self.x_offset = x_offset
 
     def __lt__(self, other):
-        """Less than comparison for heapq (arbitrary but consistent)."""
+        """Less than comparison for heapq"""
         return self.y < other.y
 
 
 class AStarBot:
-    """Base A* bot with pathfinding capabilities."""
-
-    # Action constants
     JUMP = True
     NO_JUMP = False
 
     def __init__(self, game):
-        """
-        Initialize A* bot.
-
-        Args:
-            game: Game instance for accessing state
-        """
         self.game = game
-        self.lookahead_steps = 7  # Reduced for performance
+        self.lookahead_steps = DEFAULT_LOOKAHEAD_STEPS
 
     def decide_action(self):
-        """
-        Decide whether to jump using A* pathfinding.
-
-        Returns:
-            True if should jump, False otherwise
-        """
+        """True if should jump, False otherwise"""
         bird = self.game.bird
         pipes = self.game.pipes
         items = self.game.items
 
-        # Create current state
         current_state = State(bird.y, bird.velocity, 0)
 
-        # Run A* search
         return self.a_star_search(current_state, pipes, items)
 
     def a_star_search(self, current_state, pipes, items):
@@ -70,48 +83,50 @@ class AStarBot:
         Returns:
             Best action (JUMP or NO_JUMP) for current frame
         """
-        # Priority queue: (f_score, g_score, state, action_sequence)
         open_set = [(0, 0, current_state, [])]
         closed_set = set()
 
         iterations = 0
-        max_iterations = 40  # Reduced for performance
 
-        while open_set and iterations < max_iterations:
+        while open_set and iterations < MAX_SEARCH_ITERATIONS:
             iterations += 1
 
             f_score, g_score, state, actions = heapq.heappop(open_set)
 
-            # Goal: planned ahead enough steps
             if len(actions) >= self.lookahead_steps:
                 return actions[0] if actions else self.NO_JUMP
 
-            # Early termination: if we found a good path, use it immediately
-            if len(actions) >= 5 and f_score < 20:
+            if (
+                len(actions) >= EARLY_TERMINATION_STEPS
+                and f_score < EARLY_TERMINATION_SCORE
+            ):
                 return actions[0] if actions else self.NO_JUMP
 
-            # Skip if already visited (discretize state for efficiency)
-            state_key = (round(state.y, 1), round(state.velocity, 1), state.x_offset // 5)
+            state_key = (
+                round(state.y / STATE_Y_PRECISION) * STATE_Y_PRECISION,
+                round(state.velocity / STATE_VELOCITY_PRECISION)
+                * STATE_VELOCITY_PRECISION,
+                state.x_offset // STATE_X_BUCKET_SIZE,
+            )
             if state_key in closed_set:
                 continue
             closed_set.add(state_key)
 
-            # Try both actions
             for action in [self.JUMP, self.NO_JUMP]:
                 new_state = self.predict_next_state(state, action)
 
-                # Check if state is valid (not dead)
                 if self.is_dead(new_state, pipes):
                     continue
 
                 new_actions = actions + [action]
-                new_g_score = g_score + 1  # Cost of 1 per step
+                new_g_score = g_score + 1
                 h_score = self.heuristic(new_state, pipes, items)
                 new_f_score = new_g_score + h_score
 
-                heapq.heappush(open_set, (new_f_score, new_g_score, new_state, new_actions))
+                heapq.heappush(
+                    open_set, (new_f_score, new_g_score, new_state, new_actions)
+                )
 
-        # No valid path found or timed out - use fallback
         return self.fallback_action(current_state, pipes)
 
     def predict_next_state(self, state, action):
@@ -125,81 +140,100 @@ class AStarBot:
         Returns:
             New State after action
         """
-        dt = 1.0 / 60.0  # One frame at 60 FPS
-        gravity = 1.0
-        jump_force = -22
-        terminal_velocity = 40.0
         scroll_speed = self.game.scroll_speed
 
-        # Update velocity (CRITICAL: gravity is NOT multiplied by dt - matches bird.py:26)
+        # gravity is NOT multiplied by dt
         new_velocity = state.velocity
         if action == self.JUMP:
-            new_velocity = jump_force
+            new_velocity = JUMP_FORCE
         else:
-            new_velocity += gravity  # NO dt multiplication here!
-            new_velocity = min(new_velocity, terminal_velocity)
+            new_velocity += GRAVITY
+            new_velocity = min(new_velocity, TERMINAL_VELOCITY)
 
-        # Update position (dt IS used here - matches bird.py:28)
-        new_y = state.y + new_velocity * dt
-        new_x_offset = state.x_offset + scroll_speed * dt
+        new_y = state.y + new_velocity * SIMULATION_DT
+        new_x_offset = state.x_offset + scroll_speed * SIMULATION_DT
 
         return State(new_y, new_velocity, new_x_offset)
 
     def is_dead(self, state, pipes):
-        """
-        Check if state represents a collision/death.
-
-        Args:
-            state: State to check
-            pipes: List of pipes
-
-        Returns:
-            True if dead, False otherwise
-        """
-        # Check ceiling/floor collision
-        if state.y <= 0 or state.y + 3 > 23:  # Hitbox height = 3
+        if state.y <= SCREEN_TOP or state.y + BIRD_HITBOX_HEIGHT > SCREEN_BOTTOM:
             return True
 
-        # Check pipe collisions
+        hitbox_y = round(state.y + BIRD_HITBOX_OFFSET_Y)
+        hitbox_y = max(0, min(hitbox_y, SCREEN_BOTTOM - int(BIRD_HITBOX_HEIGHT)))
+
         bird_hitbox = {
-            'x': self.game.bird.x + 1,  # Bird is at fixed x=15, hitbox offset
-            'y': round(state.y),
-            'width': 3,
-            'height': 3
+            "x": self.game.bird.x + BIRD_HITBOX_OFFSET_X,
+            "y": hitbox_y,
+            "width": BIRD_HITBOX_WIDTH,
+            "height": BIRD_HITBOX_HEIGHT,
         }
 
         for pipe in pipes:
-            # Check if pipe is in range
-            if pipe.x + pipe.width < bird_hitbox['x']:
-                continue  # Pipe is behind bird
-            if pipe.x > bird_hitbox['x'] + 20:
-                continue  # Pipe is too far ahead
+            if pipe.x + pipe.width < bird_hitbox["x"]:
+                continue
+            if pipe.x > bird_hitbox["x"] + PIPE_LOOKAHEAD_DISTANCE:
+                continue
 
-            # Check collision with pipe
             if self.check_collision(bird_hitbox, pipe):
                 return True
 
         return False
 
+    def aabb_collision(self, box1, box2):
+        """
+        True if collision, False otherwise
+        """
+        return (
+            box1["x"] < box2["x"] + box2["width"]
+            and box1["x"] + box1["width"] > box2["x"]
+            and box1["y"] < box2["y"] + box2["height"]
+            and box1["y"] + box1["height"] > box2["y"]
+        )
+
     def check_collision(self, bird_box, pipe):
         """
-        Check AABB collision between bird hitbox and pipe.
-
-        Args:
-            bird_box: Bird hitbox dict
-            pipe: Pipe object
-
-        Returns:
-            True if collision, False otherwise
+        True if collision, False otherwise
         """
-        # Check collision with top pipe
-        if (bird_box['x'] < pipe.x + pipe.width and
-            bird_box['x'] + bird_box['width'] > pipe.x):
-            # X overlap - check Y
-            if bird_box['y'] < pipe.y_top:
-                return True
-            if bird_box['y'] + bird_box['height'] > pipe.y_bottom:
-                return True
+        # Check collision with top pipe body
+        top_hitbox = {
+            "x": pipe.x + PIPE_HITBOX_INSET,
+            "y": PIPE_TOP_MARGIN,
+            "width": pipe.width - 2 * PIPE_HITBOX_INSET,
+            "height": max(0, pipe.y_top - PIPE_TOP_OFFSET),
+        }
+        if self.aabb_collision(bird_box, top_hitbox):
+            return True
+
+        # Check collision with bottom pipe body
+        bottom_hitbox = {
+            "x": pipe.x + PIPE_HITBOX_INSET,
+            "y": pipe.y_bottom + PIPE_BOTTOM_OFFSET,
+            "width": pipe.width - 2 * PIPE_HITBOX_INSET,
+            "height": max(0, SCREEN_BOTTOM - (pipe.y_bottom + PIPE_TOP_OFFSET)),
+        }
+        if self.aabb_collision(bird_box, bottom_hitbox):
+            return True
+
+        # Check collision with top cap
+        top_cap_box = {
+            "x": pipe.x + PIPE_CAP_INSET,
+            "y": max(0, pipe.y_top - PIPE_CAP_HEIGHT),
+            "width": pipe.width - 2 * PIPE_CAP_INSET,
+            "height": PIPE_CAP_HEIGHT,
+        }
+        if self.aabb_collision(bird_box, top_cap_box):
+            return True
+
+        # Check collision with bottom cap
+        bottom_cap_box = {
+            "x": pipe.x + PIPE_CAP_INSET,
+            "y": pipe.y_bottom,
+            "width": pipe.width - 2 * PIPE_CAP_INSET,
+            "height": PIPE_CAP_HEIGHT,
+        }
+        if self.aabb_collision(bird_box, bottom_cap_box):
+            return True
 
         return False
 
@@ -219,18 +253,10 @@ class AStarBot:
 
     def fallback_action(self, state, pipes):
         """
-        Fallback action when A* fails or times out.
-
-        Args:
-            state: Current state
-            pipes: List of pipes
-
-        Returns:
-            Safe action (JUMP or NO_JUMP)
+        Safe action (JUMP or NO_JUMP) to be in the middle of the gap.
         """
-        # Simple reactive fallback: jump if below gap middle
         if not pipes:
-            return state.y > 12  # Middle of screen
+            return state.y > SCREEN_MIDDLE_Y
 
         next_pipe = None
         for pipe in pipes:
@@ -239,7 +265,7 @@ class AStarBot:
                 break
 
         if not next_pipe:
-            return state.y > 12
+            return state.y > SCREEN_MIDDLE_Y
 
         gap_middle = (next_pipe.y_top + next_pipe.y_bottom) / 2
         return state.y >= gap_middle
@@ -265,13 +291,6 @@ class AStarBot:
     def get_next_pipe(self, state, pipes):
         """
         Get the next pipe ahead of the bird.
-
-        Args:
-            state: Current state
-            pipes: List of pipes
-
-        Returns:
-            Next pipe or None
         """
         bird_x = self.game.bird.x + state.x_offset
 

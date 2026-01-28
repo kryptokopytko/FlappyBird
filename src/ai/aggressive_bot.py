@@ -1,58 +1,52 @@
 """Aggressive bot that minimizes jumps."""
 
+# Strategy constants
+DEFAULT_TARGET_Y = 14
+RISING_VELOCITY_THRESHOLD = -2
+GAP_OFFSET_BELOW_MIDDLE = 1.5
+EMERGENCY_VELOCITY_THRESHOLD = 4
+EMERGENCY_MARGIN = 1
+
 
 class AggressiveBot:
-    """An aggressive bot that aims low and jumps minimally."""
+    """aims low and jumps minimally, only jumps when absolutely necessary."""
 
     def __init__(self, game):
         self.game = game
-        self.target_y = 14  # Prefer staying low
+        self.target_y = DEFAULT_TARGET_Y
 
     def decide_action(self):
-        """
-        Decide whether to jump - aggressive strategy.
-
-        Returns:
-            True if should jump, False otherwise
-        """
+        """True if should jump, False otherwise"""
         bird = self.game.bird
         pipes = self.game.pipes
 
-        # Only jump when falling significantly (not while rising)
-        if bird.velocity < -2:
+        if bird.velocity < RISING_VELOCITY_THRESHOLD:
             return False
 
         if not pipes:
-            # No pipes yet, stay relatively low
-            if bird.y > self.target_y:
-                return True
-            return False
+            return bird.y > self.target_y
 
-        # Find the next pipe ahead of the bird
-        next_pipe = None
-        for pipe in pipes:
-            if pipe.x + pipe.width > bird.x:
-                next_pipe = pipe
-                break
-
+        next_pipe = self._find_next_pipe(pipes, bird.x)
         if not next_pipe:
-            # No pipe ahead, stay low
-            if bird.y > self.target_y:
-                return True
-            return False
+            return bird.y > self.target_y
 
-        # Calculate the middle of the gap
         gap_middle = (next_pipe.y_top + next_pipe.y_bottom) / 2
+        risky_target = gap_middle + GAP_OFFSET_BELOW_MIDDLE
 
-        # Aggressive strategy: aim LOW (1.5 pixels below middle)
-        risky_target = gap_middle + 1.5
-
-        # Only jump when really low
         if bird.y > risky_target:
             return True
 
-        # Emergency jump if velocity is very high and close to target
-        if bird.velocity > 4 and bird.y > risky_target - 1:
+        if (
+            bird.velocity > EMERGENCY_VELOCITY_THRESHOLD
+            and bird.y > risky_target - EMERGENCY_MARGIN
+        ):
             return True
 
         return False
+
+    def _find_next_pipe(self, pipes, bird_x):
+        """Find the next pipe ahead of the bird."""
+        for pipe in pipes:
+            if pipe.x + pipe.width > bird_x:
+                return pipe
+        return None

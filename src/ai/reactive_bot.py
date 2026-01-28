@@ -1,52 +1,53 @@
-"""Reactive bot that responds to current position without prediction."""
+SCREEN_MIDDLE_Y = 12
+RISING_VELOCITY_THRESHOLD = -3
+FAST_FALLING_VELOCITY = 3
+SAFETY_MARGIN = 0.5
 
 
 class ReactiveBot:
-    """A simple reactive bot that doesn't predict - just reacts."""
+    """A simple reactive bot that doesn't predict - just reacts.
+
+    Strategy: Responds to current position relative to gap center.
+    Includes safety margin for fast falling to prevent crashes.
+    """
 
     def __init__(self, game):
         self.game = game
-        self.target_y = 12  # Middle of screen
+        self.target_y = SCREEN_MIDDLE_Y
 
     def decide_action(self):
         """
-        Decide whether to jump - reactive strategy (no prediction).
-
-        Returns:
-            True if should jump, False otherwise
+        True if should jump, False otherwise
         """
         bird = self.game.bird
         pipes = self.game.pipes
 
-        # Only jump when falling (allow minor corrections)
-        if bird.velocity < -3:
+        if bird.velocity < RISING_VELOCITY_THRESHOLD:
             return False
 
         if not pipes:
-            # No pipes - simple middle logic
             return bird.y > self.target_y
 
-        # Find the next pipe ahead of the bird
-        next_pipe = None
-        for pipe in pipes:
-            if pipe.x + pipe.width > bird.x:
-                next_pipe = pipe
-                break
-
+        next_pipe = self._find_next_pipe(pipes, bird.x)
         if not next_pipe:
-            # No pipe ahead - simple middle logic
             return bird.y > self.target_y
 
-        # Calculate the middle of the gap
         gap_middle = (next_pipe.y_top + next_pipe.y_bottom) / 2
 
-        # Reactive strategy: simple comparison, NO prediction
-        # Just ask: "Am I below the gap middle?"
         if bird.y >= gap_middle:
             return True
 
-        # Small safety margin: jump if falling fast and close to middle
-        if bird.velocity > 3 and bird.y > gap_middle - 0.5:
+        if (
+            bird.velocity > FAST_FALLING_VELOCITY
+            and bird.y > gap_middle - SAFETY_MARGIN
+        ):
             return True
 
         return False
+
+    def _find_next_pipe(self, pipes, bird_x):
+        """Find the next pipe ahead of the bird."""
+        for pipe in pipes:
+            if pipe.x + pipe.width > bird_x:
+                return pipe
+        return None

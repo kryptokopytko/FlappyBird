@@ -1,4 +1,3 @@
-"""MAP-Elites runner for level generation."""
 import time
 from typing import Dict, List, Optional
 import numpy as np
@@ -10,22 +9,11 @@ from utils.config import PCG_CONFIG
 
 
 class MAPElitesRunner:
-    """
-    Runs MAP-Elites algorithm to evolve diverse, high-quality levels.
-    """
-
     def __init__(self, level_tester=None, verbose=True):
-        """
-        Initialize MAP-Elites runner.
+        self.config = PCG_CONFIG["map_elites"]
+        self.eval_config = PCG_CONFIG["evaluation"]
 
-        Args:
-            level_tester: LevelTester instance for evaluating genomes
-            verbose: Whether to print progress
-        """
-        self.config = PCG_CONFIG['map_elites']
-        self.eval_config = PCG_CONFIG['evaluation']
-
-        self.archive = MAPElitesArchive(dims=self.config['archive_dims'])
+        self.archive = MAPElitesArchive(dims=self.config["archive_dims"])
         self.evaluator = LevelEvaluator()
         self.level_tester = level_tester
         self.verbose = verbose
@@ -34,17 +22,8 @@ class MAPElitesRunner:
         self.total_evaluations = 0
 
     def run(self, num_iterations: Optional[int] = None) -> MAPElitesArchive:
-        """
-        Run MAP-Elites algorithm.
-
-        Args:
-            num_iterations: Number of iterations to run (uses config if None)
-
-        Returns:
-            Filled MAPElitesArchive
-        """
         if num_iterations is None:
-            num_iterations = self.config['num_iterations']
+            num_iterations = self.config["num_iterations"]
 
         if self.verbose:
             print(f"Starting MAP-Elites with {num_iterations} iterations")
@@ -52,33 +31,25 @@ class MAPElitesRunner:
 
         start_time = time.time()
 
-        # Phase 1: Initialize with random genomes
         self._initialize_archive()
 
-        # Phase 2: Iterative improvement
         for i in range(num_iterations):
             self.iteration = i + 1
 
-            # Select random elite
             parent = self.archive.get_random_elite()
 
             if parent is None:
-                # Fallback: create random genome
                 parent = LevelGenome()
 
-            # Mutate to create offspring
             offspring = parent.mutate(
-                mutation_rate=self.config['mutation_rate'],
-                mutation_sigma=self.config['mutation_sigma']
+                mutation_rate=self.config["mutation_rate"],
+                mutation_sigma=self.config["mutation_sigma"],
             )
 
-            # Evaluate offspring
             quality, behavior = self._evaluate_genome(offspring)
 
-            # Try to add to archive
             added = self.archive.add(offspring, quality, behavior)
 
-            # Logging
             if self.verbose and (i + 1) % 50 == 0:
                 self._print_progress(i + 1, num_iterations, start_time)
 
@@ -89,7 +60,7 @@ class MAPElitesRunner:
 
     def _initialize_archive(self):
         """Initialize archive with random genomes."""
-        num_samples = self.config['initial_samples']
+        num_samples = self.config["initial_samples"]
 
         if self.verbose:
             print(f"\nInitializing archive with {num_samples} random genomes...")
@@ -100,8 +71,10 @@ class MAPElitesRunner:
             self.archive.add(genome, quality, behavior)
 
             if self.verbose and (i + 1) % 10 == 0:
-                print(f"  Initialized {i + 1}/{num_samples} genomes "
-                      f"(coverage: {self.archive.get_coverage():.1%})")
+                print(
+                    f"  Initialized {i + 1}/{num_samples} genomes "
+                    f"(coverage: {self.archive.get_coverage():.1%})"
+                )
 
     def _evaluate_genome(self, genome: LevelGenome) -> tuple:
         """
@@ -116,38 +89,37 @@ class MAPElitesRunner:
         self.total_evaluations += 1
 
         if self.level_tester is None:
-            # Fallback: Return random values for testing
             import random
+
             quality = random.random()
             behavior = (random.random(), random.random())
             return quality, behavior
 
-        # Test level with all bots
         test_results = self.level_tester.test_genome(genome)
 
-        # Compute quality score
         quality, _ = self.evaluator.evaluate_level(test_results)
 
-        # Compute behavior features
-        behavior = self.evaluator.compute_behavior_features(test_results)
+        behavior = self.evaluator.compute_behavior_features(test_results, genome)
 
         return quality, behavior
 
     def _print_progress(self, iteration: int, total: int, start_time: float):
-        """Print progress statistics."""
         stats = self.archive.get_statistics()
         elapsed = time.time() - start_time
         iter_per_sec = iteration / elapsed if elapsed > 0 else 0
 
         print(f"\nIteration {iteration}/{total} ({iteration/total:.1%})")
         print(f"  Coverage: {stats['coverage']:.1%} ({stats['num_elites']} elites)")
-        print(f"  Quality: avg={stats['avg_quality']:.3f}, "
-              f"max={stats['max_quality']:.3f}, min={stats['min_quality']:.3f}")
-        print(f"  Speed: {iter_per_sec:.1f} iter/s, "
-              f"Elapsed: {elapsed:.1f}s, ETA: {(total-iteration)/iter_per_sec:.1f}s")
+        print(
+            f"  Quality: avg={stats['avg_quality']:.3f}, "
+            f"max={stats['max_quality']:.3f}, min={stats['min_quality']:.3f}"
+        )
+        print(
+            f"  Speed: {iter_per_sec:.1f} iter/s, "
+            f"Elapsed: {elapsed:.1f}s, ETA: {(total-iteration)/iter_per_sec:.1f}s"
+        )
 
     def _print_final_stats(self, elapsed_time: float):
-        """Print final statistics."""
         stats = self.archive.get_statistics()
 
         print(f"\n{'='*60}")
@@ -158,12 +130,13 @@ class MAPElitesRunner:
         print(f"Time elapsed: {elapsed_time:.1f}s")
         print(f"\nArchive Statistics:")
         print(f"  Coverage: {stats['coverage']:.1%} ({stats['num_elites']} elites)")
-        print(f"  Quality: avg={stats['avg_quality']:.3f}, "
-              f"max={stats['max_quality']:.3f}, min={stats['min_quality']:.3f}")
+        print(
+            f"  Quality: avg={stats['avg_quality']:.3f}, "
+            f"max={stats['max_quality']:.3f}, min={stats['min_quality']:.3f}"
+        )
         print(f"{'='*60}\n")
 
     def get_best_genome(self) -> Optional[LevelGenome]:
-        """Get the genome with highest quality."""
         elites = self.archive.get_all_elites()
         if not elites:
             return None
@@ -219,16 +192,16 @@ class MAPElitesRunner:
         return [g for g, _, _ in selected]
 
     def save_archive(self, filepath: str):
-        """Save the archive to file."""
         self.archive.save(filepath)
         if self.verbose:
             print(f"Archive saved to {filepath}")
 
     def load_archive(self, filepath: str):
-        """Load archive from file."""
         self.archive = MAPElitesArchive.load(filepath)
         if self.verbose:
             stats = self.archive.get_statistics()
             print(f"Archive loaded from {filepath}")
-            print(f"  Loaded {stats['num_elites']} elites "
-                  f"(coverage: {stats['coverage']:.1%})")
+            print(
+                f"  Loaded {stats['num_elites']} elites "
+                f"(coverage: {stats['coverage']:.1%})"
+            )

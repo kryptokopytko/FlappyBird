@@ -1,27 +1,53 @@
-"""Procedural level generator."""
+"""Level generation for procedural pipe and item placement."""
 
 import random
-from entities.pipe import Pipe
+
 from entities.coin import Coin
-from entities.powerup import PowerUp
+from entities.pipe import Pipe
+from entities.powerup import (
+    PowerUp,
+    POWERUP_SHIELD,
+    POWERUP_SLOW_MOTION,
+    POWERUP_SMALL,
+    DEBUFF_SPEED_UP,
+    DEBUFF_LARGE
+)
 from utils.config import GAME_CONFIG
+
+# Pipe generation constants
+INITIAL_PIPE_X = 120
+RESET_PIPE_X = 80
+DEFAULT_MAX_HEIGHT_CHANGE = 6
+MIN_GAP_CENTER = 5
+MAX_GAP_CENTER = 18
+
+# Item placement constants
+GAP_ITEM_MARGIN = 2
+DEFAULT_MIN_ITEM_DISTANCE = 5
+COIN_MIN_DISTANCE = 4
+POWERUP_MIN_DISTANCE = 6
+PLACEMENT_MAX_ATTEMPTS = 5
+
+# Coin generation
+MIN_COINS_PER_PIPE = 1
+MAX_COINS_PER_PIPE = 3
+COIN_OFFSET_MIN = 8
+COIN_OFFSET_MAX = 18
+GOLD_COIN_PROBABILITY = 0.1
+GOLD_COIN_VALUE = 15
+REGULAR_COIN_VALUE = 5
+
+# Powerup/Debuff placement
+POWERUP_OFFSET_MIN = 10
+POWERUP_OFFSET_MAX = 20
 
 
 class LevelGenerator:
-    """Generates pipes and obstacles procedurally."""
-
     def __init__(self, difficulty='medium'):
-        """
-        Initialize the level generator.
-
-        Args:
-            difficulty: 'easy', 'medium', or 'hard'
-        """
         self.difficulty = difficulty
         self.pipe_spacing = GAME_CONFIG['level']['pipe_spacing']
         self.base_gap_size = GAME_CONFIG['level']['gap_size']
 
-        # Difficulty modifiers
         self.difficulty_settings = {
             'easy': {'gap_size': 10, 'spacing': 45},
             'medium': {'gap_size': 8, 'spacing': 40},
@@ -32,40 +58,25 @@ class LevelGenerator:
         self.gap_size = settings['gap_size']
         self.pipe_spacing = settings['spacing']
 
-        self.next_pipe_x = 120  # Start pipes off-screen (increased for bot warmup)
+        self.next_pipe_x = INITIAL_PIPE_X
 
-        # Item spawn rates
         self.coin_spawn_rate = GAME_CONFIG['items']['coin_spawn_rate']
         self.powerup_spawn_rate = GAME_CONFIG['items']['powerup_spawn_rate']
         self.debuff_spawn_rate = GAME_CONFIG['items']['debuff_spawn_rate']
 
-        # Track last gap center for smoother transitions
         self.last_gap_center = None
-        self.max_height_change = 6  # Maximum change in gap height between pipes
+        self.max_height_change = DEFAULT_MAX_HEIGHT_CHANGE
 
     def generate_pipe(self):
-        """
-        Generate a single pipe pair with smooth height transitions.
-
-        Returns:
-            Pipe object
-        """
-        # Screen bounds (account for UI and ground)
-        min_gap_center = 5
-        max_gap_center = 18  # 24 - 3 (ground) - 3 (safety margin)
-
-        # Random gap center position with smooth transitions
         if self.last_gap_center is None:
-            gap_center = random.randint(min_gap_center, max_gap_center)
+            gap_center = random.randint(MIN_GAP_CENTER, MAX_GAP_CENTER)
         else:
-            # Limit change from last pipe
-            min_center = max(min_gap_center, self.last_gap_center - self.max_height_change)
-            max_center = min(max_gap_center, self.last_gap_center + self.max_height_change)
+            min_center = max(MIN_GAP_CENTER, self.last_gap_center - self.max_height_change)
+            max_center = min(MAX_GAP_CENTER, self.last_gap_center + self.max_height_change)
             gap_center = random.randint(min_center, max_center)
 
         self.last_gap_center = gap_center
 
-        # Calculate top and bottom pipe positions
         y_top = gap_center - self.gap_size // 2
         y_bottom = gap_center + self.gap_size // 2
 
@@ -75,42 +86,19 @@ class LevelGenerator:
         return pipe
 
     def should_generate_pipe(self, current_pipes):
-        """
-        Check if a new pipe should be generated.
-
-        Args:
-            current_pipes: List of currently active pipes
-
-        Returns:
-            True if new pipe should be generated
-        """
         if not current_pipes:
             return True
 
-        # Get the rightmost pipe
         rightmost = max(current_pipes, key=lambda p: p.x)
-
-        # Generate when the rightmost pipe is far enough left
         return rightmost.x < self.next_pipe_x - self.pipe_spacing
 
     def generate_items_for_pipe(self, pipe):
-        """
-        Generate coins and power-ups around a pipe.
-
-        Args:
-            pipe: The pipe to generate items around
-
-        Returns:
-            List of items (coins, powerups)
-        """
         items = []
 
-        # Calculate safe zone (in the gap, with margin from pipe edges)
-        gap_start = pipe.y_top + 2  # +2 instead of +1 for more safety
-        gap_end = pipe.y_bottom - 2  # -2 instead of -1 for more safety
+        gap_start = pipe.y_top + GAP_ITEM_MARGIN
+        gap_end = pipe.y_bottom - GAP_ITEM_MARGIN
 
-        # Helper function to check if position is too close to existing items
-        def is_too_close(x, y, min_dist=5):
+        def is_too_close(x, y, min_dist=DEFAULT_MIN_ITEM_DISTANCE):
             for item in items:
                 dx = abs(item.x - x)
                 dy = abs(item.y - y)
@@ -118,81 +106,62 @@ class LevelGenerator:
                     return True
             return False
 
-        # Coins - place away from pipe edges
         if random.random() < self.coin_spawn_rate:
-            num_coins = random.randint(1, 3)
+            num_coins = random.randint(MIN_COINS_PER_PIPE, MAX_COINS_PER_PIPE)
             for _ in range(num_coins):
-                # Try up to 5 times to find non-overlapping position
-                for attempt in range(5):
-                    coin_x = pipe.x + random.randint(8, 18)  # Further from pipe (was 0-10)
+                for attempt in range(PLACEMENT_MAX_ATTEMPTS):
+                    coin_x = pipe.x + random.randint(COIN_OFFSET_MIN, COIN_OFFSET_MAX)
                     coin_y = random.randint(gap_start, gap_end)
 
-                    if not is_too_close(coin_x, coin_y, min_dist=4):
-                        # 10% chance for gold coin
-                        value = 15 if random.random() < 0.1 else 5
+                    if not is_too_close(coin_x, coin_y, min_dist=COIN_MIN_DISTANCE):
+                        value = GOLD_COIN_VALUE if random.random() < GOLD_COIN_PROBABILITY else REGULAR_COIN_VALUE
                         items.append(Coin(coin_x, coin_y, value))
                         break
 
-        # Power-ups - less frequent, well-spaced
         if random.random() < self.powerup_spawn_rate:
-            powerup_types = [PowerUp.SHIELD, PowerUp.SLOW_MOTION, PowerUp.SMALL]
+            powerup_types = [POWERUP_SHIELD, POWERUP_SLOW_MOTION, POWERUP_SMALL]
             powerup_type = random.choice(powerup_types)
 
-            for attempt in range(5):
-                powerup_x = pipe.x + random.randint(10, 20)  # Wider range, further from pipe
+            for attempt in range(PLACEMENT_MAX_ATTEMPTS):
+                powerup_x = pipe.x + random.randint(POWERUP_OFFSET_MIN, POWERUP_OFFSET_MAX)
                 powerup_y = random.randint(gap_start, gap_end)
 
-                if not is_too_close(powerup_x, powerup_y, min_dist=6):
+                if not is_too_close(powerup_x, powerup_y, min_dist=POWERUP_MIN_DISTANCE):
                     items.append(PowerUp(powerup_x, powerup_y, powerup_type))
                     break
 
-        # Debuffs - rare, well-separated
         if random.random() < self.debuff_spawn_rate:
-            debuff_types = [PowerUp.SPEED_UP, PowerUp.LARGE]
+            debuff_types = [DEBUFF_SPEED_UP, DEBUFF_LARGE]
             debuff_type = random.choice(debuff_types)
 
-            for attempt in range(5):
-                debuff_x = pipe.x + random.randint(10, 20)  # Same as powerups
+            for attempt in range(PLACEMENT_MAX_ATTEMPTS):
+                debuff_x = pipe.x + random.randint(POWERUP_OFFSET_MIN, POWERUP_OFFSET_MAX)
                 debuff_y = random.randint(gap_start, gap_end)
 
-                if not is_too_close(debuff_x, debuff_y, min_dist=6):
+                if not is_too_close(debuff_x, debuff_y, min_dist=POWERUP_MIN_DISTANCE):
                     items.append(PowerUp(debuff_x, debuff_y, debuff_type))
                     break
 
         return items
 
     def reset(self):
-        """Reset the generator state."""
-        self.next_pipe_x = 80
+        self.next_pipe_x = RESET_PIPE_X
         self.last_gap_center = None
 
     @classmethod
     def from_genome(cls, genome):
-        """
-        Create a LevelGenerator from a LevelGenome.
-
-        Args:
-            genome: LevelGenome instance with parameters
-
-        Returns:
-            LevelGenerator configured with genome parameters
-        """
-        # Import here to avoid circular dependency
         from pcg.level_genome import LevelGenome
 
         generator = cls(difficulty='custom')
 
-        # Apply genome parameters
         generator.pipe_spacing = int(genome.get('pipe_spacing'))
         generator.gap_size = int(genome.get('gap_size'))
         generator.max_height_change = int(genome.get('max_height_change'))
 
-        # Item spawn rates
         generator.coin_spawn_rate = genome.get('coin_spawn_rate')
         generator.powerup_spawn_rate = genome.get('powerup_spawn_rate')
         generator.debuff_spawn_rate = genome.get('debuff_spawn_rate')
 
-        # Store genome parameters for item generation
         generator._genome_params = {
             'coin_offset_min': int(genome.get('coin_offset_min')),
             'coin_offset_max': int(genome.get('coin_offset_max')),

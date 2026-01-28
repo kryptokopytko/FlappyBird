@@ -1,26 +1,25 @@
-"""MAP-Elites algorithm for diverse level generation."""
+import json
 import numpy as np
 from typing import Dict, Tuple, Optional, List
+
 from pcg.level_genome import LevelGenome
 from utils.config import PCG_CONFIG
 
 
 class MAPElitesArchive:
     """
-    Archive for MAP-Elites algorithm.
-
     Stores elite solutions in a 2D grid based on behavior characteristics:
-    - Dimension 1: Difficulty (0=easy, 1=hard)
-    - Dimension 2: Accessibility (0=items hard to collect, 1=easy to collect)
+    - Dimension 1: Gap Tightness (0=large gaps, 1=small gaps)
+    - Dimension 2: Item Richness (0=sparse items, 1=rich items)
     """
 
-    def __init__(self, dims: Tuple[int, int] = (10, 10)):
+    def __init__(self, dims: Optional[Tuple[int, int]] = None):
         """
-        Initialize MAP-Elites archive.
-
         Args:
-            dims: (rows, cols) dimensions of the behavior grid
+            dims: (rows, cols) dimensions of the behavior grid. If None, uses config.
         """
+        if dims is None:
+            dims = PCG_CONFIG["map_elites"]["archive_dims"]
         self.dims = dims
         self.archive = np.empty(dims, dtype=object)  # Stores (genome, quality) tuples
         self.num_elites = 0
@@ -30,27 +29,28 @@ class MAPElitesArchive:
         Convert continuous behavior features to discrete grid cell.
 
         Args:
-            behavior: (difficulty, accessibility) in [0, 1] range
+            behavior: (gap_tightness, item_richness) in [0, 1] range
 
         Returns:
             (row, col) grid indices
         """
-        difficulty, accessibility = behavior
+        gap_tightness, item_richness = behavior
 
-        # Map [0, 1] to grid indices
-        row = min(self.dims[0] - 1, int(difficulty * self.dims[0]))
-        col = min(self.dims[1] - 1, int(accessibility * self.dims[1]))
+        row = min(self.dims[0] - 1, int(gap_tightness * self.dims[0]))
+        col = min(self.dims[1] - 1, int(item_richness * self.dims[1]))
 
         return (row, col)
 
-    def add(self, genome: LevelGenome, quality: float, behavior: Tuple[float, float]) -> bool:
+    def add(
+        self, genome: LevelGenome, quality: float, behavior: Tuple[float, float]
+    ) -> bool:
         """
         Try to add a genome to the archive.
 
         Args:
             genome: LevelGenome to add
             quality: Quality score of the genome
-            behavior: (difficulty, accessibility) behavior features
+            behavior: (gap_tightness, item_richness) behavior features
 
         Returns:
             True if genome was added (new cell or better quality), False otherwise
@@ -122,8 +122,6 @@ class MAPElitesArchive:
 
     def get_statistics(self) -> Dict:
         """
-        Get statistics about the archive.
-
         Returns:
             Dict with coverage, num_elites, avg_quality, max_quality
         """
@@ -131,21 +129,21 @@ class MAPElitesArchive:
 
         if not elites:
             return {
-                'coverage': 0.0,
-                'num_elites': 0,
-                'avg_quality': 0.0,
-                'max_quality': 0.0,
-                'min_quality': 0.0
+                "coverage": 0.0,
+                "num_elites": 0,
+                "avg_quality": 0.0,
+                "max_quality": 0.0,
+                "min_quality": 0.0,
             }
 
         qualities = [q for _, q, _ in elites]
 
         return {
-            'coverage': self.get_coverage(),
-            'num_elites': self.num_elites,
-            'avg_quality': np.mean(qualities),
-            'max_quality': np.max(qualities),
-            'min_quality': np.min(qualities)
+            "coverage": self.get_coverage(),
+            "num_elites": self.num_elites,
+            "avg_quality": np.mean(qualities),
+            "max_quality": np.max(qualities),
+            "min_quality": np.min(qualities),
         }
 
     def get_heatmap(self) -> np.ndarray:
@@ -166,39 +164,30 @@ class MAPElitesArchive:
         return heatmap
 
     def save(self, filepath: str):
-        """Save archive to file."""
-        data = {
-            'dims': self.dims,
-            'elites': []
-        }
+        data = {"dims": self.dims, "elites": []}
 
         for i in range(self.dims[0]):
             for j in range(self.dims[1]):
                 if self.archive[i, j] is not None:
                     genome, quality = self.archive[i, j]
-                    data['elites'].append({
-                        'cell': (i, j),
-                        'genome': genome.to_dict(),
-                        'quality': quality
-                    })
+                    data["elites"].append(
+                        {"cell": (i, j), "genome": genome.to_dict(), "quality": quality}
+                    )
 
-        import json
-        with open(filepath, 'w') as f:
+        with open(filepath, "w") as f:
             json.dump(data, f, indent=2)
 
     @classmethod
-    def load(cls, filepath: str) -> 'MAPElitesArchive':
-        """Load archive from file."""
-        import json
-        with open(filepath, 'r') as f:
+    def load(cls, filepath: str) -> "MAPElitesArchive":
+        with open(filepath, "r") as f:
             data = json.load(f)
 
-        archive = cls(dims=tuple(data['dims']))
+        archive = cls(dims=tuple(data["dims"]))
 
-        for elite in data['elites']:
-            i, j = elite['cell']
-            genome = LevelGenome.from_dict(elite['genome'])
-            quality = elite['quality']
+        for elite in data["elites"]:
+            i, j = elite["cell"]
+            genome = LevelGenome.from_dict(elite["genome"])
+            quality = elite["quality"]
             archive.archive[i, j] = (genome, quality)
             archive.num_elites += 1
 

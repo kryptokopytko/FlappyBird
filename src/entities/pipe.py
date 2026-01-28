@@ -1,75 +1,53 @@
-"""Pipe obstacle entity."""
+from utils.config import GAME_CONFIG
+
+PIPE_WIDTH = 6
+PIPE_HITBOX_INSET = 1
+PIPE_TOP_MARGIN = 1
+PIPE_BOTTOM_OFFSET = 2
+PIPE_TOP_OFFSET = 3
 
 
 class Pipe:
-    """Represents a pipe obstacle."""
+    """Vertical pipe obstacle with a gap for the bird to pass through."""
 
-    def __init__(self, x, y_top, y_bottom, gap_size):
-        """
-        Create a pipe pair.
+    def __init__(self, x: float, y_top: float, y_bottom: float, gap_size: float):
+        """Initialize pipe.
 
         Args:
-            x: Horizontal position
-            y_top: Bottom of the top pipe
-            y_bottom: Top of the bottom pipe
-            gap_size: Size of the gap between pipes
+            x: X position
+            y_top: Y coordinate of top of gap
+            y_bottom: Y coordinate of bottom of gap
+            gap_size: Size of gap between pipes
         """
         self.x = x
         self.y_top = y_top
         self.y_bottom = y_bottom
         self.gap_size = gap_size
-        self.width = 6
-        self.passed = False  # Track if bird passed this pipe
+        self.width = PIPE_WIDTH
+        self.passed = False
 
-    def update(self, scroll_speed, dt):
-        """Update pipe position (scrolling)."""
+    def update(self, scroll_speed: float, dt: float) -> None:
         self.x -= scroll_speed * dt
 
-    def is_offscreen(self):
-        """Check if pipe is off the left side of screen."""
+    def is_offscreen(self) -> bool:
         return self.x + self.width < 0
 
-    def get_top_hitbox(self):
-        """Get hitbox for the top pipe (excluding the decorative cap)."""
-        # Exclude the decorative cap (2 lines) for more forgiving collision
+    def get_top_hitbox(self) -> dict:
         return {
-            'x': self.x + 1,  # Shrink horizontally by 1 pixel on each side
-            'y': 1,  # Start 1 line below the ceiling
-            'width': self.width - 2,
-            'height': max(0, self.y_top - 3)
+            "x": self.x + PIPE_HITBOX_INSET,
+            "y": PIPE_TOP_MARGIN,
+            "width": self.width - 2 * PIPE_HITBOX_INSET,
+            "height": max(0, self.y_top - PIPE_TOP_OFFSET),
         }
 
-    def get_bottom_hitbox(self):
-        """Get hitbox for the bottom pipe (excluding the decorative cap)."""
-        # Exclude the decorative cap (2 lines) for more forgiving collision
+    def get_bottom_hitbox(self) -> dict:
+        screen_height = GAME_CONFIG["screen"]["height"]
         return {
-            'x': self.x + 1,  # Shrink horizontally by 1 pixel on each side
-            'y': self.y_bottom + 2,
-            'width': self.width - 2,
-            'height': max(0, 24 - (self.y_bottom + 3))
+            "x": self.x + PIPE_HITBOX_INSET,
+            "y": self.y_bottom + PIPE_BOTTOM_OFFSET,
+            "width": self.width - 2 * PIPE_HITBOX_INSET,
+            "height": max(0, screen_height - (self.y_bottom + PIPE_TOP_OFFSET)),
         }
 
-    def bird_in_gap(self, bird_y):
-        """Check if bird Y position is in the gap."""
+    def bird_in_gap(self, bird_y: float) -> bool:
         return self.y_top < bird_y < self.y_bottom
-
-    def render_ascii(self):
-        """Return ASCII art for the pipe."""
-        # Top pipe segment
-        top_pipe = [
-            "║████║",
-            "║████║",
-            "╚════╝"
-        ]
-
-        # Bottom pipe segment
-        bottom_pipe = [
-            "╔════╗",
-            "║████║",
-            "║████║"
-        ]
-
-        return {
-            'top': top_pipe,
-            'bottom': bottom_pipe
-        }
