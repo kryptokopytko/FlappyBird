@@ -92,6 +92,5 @@ class LevelTester:
         }
 
 
-# Legacy aliases for backward compatibility
 FastLevelTester = LevelTester
 UltraFastLevelTester = LevelTester

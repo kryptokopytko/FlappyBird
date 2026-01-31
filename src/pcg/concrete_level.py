@@ -62,11 +62,7 @@ class ConcreteLevel:
 
     @classmethod
     def generate_from_params(cls, params: Dict[str, float], length: float = 900.0) -> "ConcreteLevel":
-        """
-        Generate a concrete level from procedural parameters.
-
-        This converts the old parametric representation to concrete pipes/items.
-        """
+        """Generate concrete level from generation parameters."""
         pipes = []
         items = []
 

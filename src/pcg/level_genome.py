@@ -1,4 +1,4 @@
-"""Level genome - now using concrete level representation instead of parameters."""
+"""Level genome storing concrete pipe and item positions."""
 
 import random
 from typing import Dict, Any
@@ -7,15 +7,10 @@ from pcg.concrete_level import ConcreteLevel, Pipe, Item
 
 
 class LevelGenome:
-    """
-    Genome that stores a concrete level with specific pipe and item positions.
-
-    This replaces the old parametric representation with direct level encoding.
-    """
+    """Genome storing concrete level with specific pipe and item positions."""
 
     def __init__(self, level: ConcreteLevel = None):
         if level is None:
-            # Generate random level from random parameters
             params = self._generate_random_params()
             self.level = ConcreteLevel.generate_from_params(params, length=900.0)
         else:
@@ -50,18 +45,13 @@ class LevelGenome:
         return cls(level)
 
     def copy(self) -> "LevelGenome":
-        # Deep copy the level
         new_pipes = [Pipe(p.x, p.gap_center, p.gap_size) for p in self.level.pipes]
         new_items = [Item(i.x, i.y, i.type, i.is_gold) for i in self.level.items]
         new_level = ConcreteLevel(new_pipes, new_items, self.level.length)
         return LevelGenome(new_level)
 
     def get(self, param_name: str) -> float:
-        """
-        Get a level feature (for compatibility with old API).
-
-        Returns computed features like average gap_size, etc.
-        """
+        """Get computed level features like average gap_size, pipe_spacing, etc."""
         if param_name == "gap_size":
             if not self.level.pipes:
                 return 8.0
@@ -94,14 +84,7 @@ class LevelGenome:
 
     def mutate(self, mutation_rate=0.25, mutation_sigma=0.15) -> "LevelGenome":
         """
-        Mutate the concrete level.
-
-        Operations:
-        - Adjust pipe gap_size
-        - Adjust pipe gap_center
-        - Adjust pipe x position
-        - Add/remove pipes
-        - Add/remove items
+        Mutate concrete level by adjusting pipe positions, gaps, and items.
 
         Args:
             mutation_rate: Probability of mutating each element
