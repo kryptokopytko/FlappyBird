@@ -74,7 +74,6 @@ class GraphicalRenderer:
     def draw_bird(self, bird):
         original_w, original_h = self.scale_size(bird.width, bird.height)
 
-        # Reduced from 5 to 3.5 (30% smaller)
         target_w = original_w * 3.5
         target_h = original_h * 3.5
 
@@ -355,6 +354,62 @@ class GraphicalRenderer:
                         self.screen.blit(outline, outline_rect)
 
             self.screen.blit(text_surface, rect)
+
+    def render_victory(self, score, coins, high_score):
+        """Render victory screen when level is completed."""
+        overlay = pygame.Surface((self.width, self.height))
+        overlay.set_alpha(180)
+        overlay.fill((0, 50, 0))  # Dark green overlay
+        self.screen.blit(overlay, (0, 0))
+
+        victory_text = 'VICTORY!'
+        victory_surface = self.title_font.render(victory_text, True, (50, 255, 50))  # Bright green
+        go_rect = victory_surface.get_rect(center=(self.width // 2, 150))
+
+        # Outline effect
+        for dx in range(-5, 6):
+            for dy in range(-5, 6):
+                if dx*dx + dy*dy <= 25:
+                    outline = self.title_font.render(victory_text, True, (0, 0, 0))
+                    outline_rect = outline.get_rect(center=(self.width // 2 + dx, 150 + dy))
+                    self.screen.blit(outline, outline_rect)
+
+        self.screen.blit(victory_surface, go_rect)
+
+        # Level completed message
+        completed_text = 'LEVEL COMPLETED!'
+        completed_surface = self.menu_font.render(completed_text, True, (200, 255, 200))
+        completed_rect = completed_surface.get_rect(center=(self.width // 2, 200))
+        self.screen.blit(completed_surface, completed_rect)
+
+        # Stats
+        y_offset = 250
+        stats = [
+            f'Final Score: {score}',
+            f'Coins Collected: {coins}',
+            f'High Score: {high_score}'
+        ]
+
+        for i, stat in enumerate(stats):
+            y_pos = y_offset + i * 50
+            text_surface = self.menu_font.render(stat, True, (200, 255, 200))
+            rect = text_surface.get_rect(center=(self.width // 2, y_pos))
+
+            # Outline
+            for dx in range(-3, 4):
+                for dy in range(-3, 4):
+                    if dx*dx + dy*dy <= 9:
+                        outline = self.menu_font.render(stat, True, (0, 0, 0))
+                        outline_rect = outline.get_rect(center=(self.width // 2 + dx, y_pos + dy))
+                        self.screen.blit(outline, outline_rect)
+
+            self.screen.blit(text_surface, rect)
+
+        # Press ENTER prompt
+        prompt_text = 'Press ENTER to continue'
+        prompt_surface = self.small_font.render(prompt_text, True, (150, 255, 150))
+        prompt_rect = prompt_surface.get_rect(center=(self.width // 2, 420))
+        self.screen.blit(prompt_surface, prompt_rect)
 
         inst_text = 'Press SPACE to restart or ESC for menu'
         inst_surface = self.small_font.render(inst_text, True, (200, 200, 200))

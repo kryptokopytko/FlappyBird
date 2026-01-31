@@ -20,10 +20,9 @@ class LevelTester:
     """
 
     def __init__(self):
-        # Optimized settings for fast PCG evaluation
-        self.dt = 1.0 / 60  # Normal timestep (must match SIMULATION_DT in astar_bot.py)
-        self.test_duration = 10.0  # Seconds of simulation time
-        self.bots = ["aggressive", "coin_collector"]  # Representative subset
+        self.dt = 1.0 / 60
+        self.test_duration = 30.0
+        self.bots = ["aggressive", "coin_collector"]
 
     def test_genome(self, genome: LevelGenome) -> Dict[str, List[Dict]]:
         """
@@ -59,10 +58,10 @@ class LevelTester:
             Dict with test results
         """
         from game_graphical import Game
-        from level_generator import LevelGenerator
+        from concrete_level_generator import ConcreteLevelGenerator
 
         game = Game(headless=True)
-        game.level_generator = LevelGenerator.from_genome(genome)
+        game.level_generator = ConcreteLevelGenerator.from_genome(genome)
         game.bot_type = bot_type
         game.start_game(bot_mode=True)
 

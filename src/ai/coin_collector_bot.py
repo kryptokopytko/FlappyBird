@@ -9,14 +9,14 @@ from ai.astar_bot import (
 from entities.coin import Coin
 
 # Search and performance constants
-COIN_COLLECTOR_LOOKAHEAD = 6
-MAX_COIN_SEARCH_DISTANCE = 30
-MAX_COIN_DISTANCE_SQUARED = 900
+COIN_COLLECTOR_LOOKAHEAD = 10
+MAX_COIN_SEARCH_DISTANCE = 40
+MAX_COIN_DISTANCE_SQUARED = 1600
 
 # Coin values and rewards
 GOLD_COIN_VALUE = 15
 REGULAR_COIN_VALUE = 5
-COIN_REWARD_MULTIPLIER = 100.0
+COIN_REWARD_MULTIPLIER = 60.0
 DISTANCE_OFFSET = 100
 
 # Navigation and safety constants
@@ -27,10 +27,10 @@ GAP_SAFETY_MARGIN = 1
 BIRD_HEIGHT = 3
 
 # Danger zone penalties
-DANGER_ZONE_PENALTY = 30
+DANGER_ZONE_PENALTY = 35
 CEILING_DANGER_ZONE = 2
 FLOOR_DANGER_ZONE = 21
-EXTREME_POSITION_PENALTY = 80
+EXTREME_POSITION_PENALTY = 70
 
 # Collision constants
 COLLISION_PENALTY = 10000
@@ -72,16 +72,29 @@ class CoinCollectorBot(AStarBot):
             return collision_penalty
 
         total_score = 0
-        coin_reward = self._calculate_coin_reward(state, items)
-        total_score += coin_reward
-
         next_pipe = self.get_next_pipe(state, pipes)
 
-        if coin_reward == 0:
-            total_score += self._calculate_navigation_penalty(state, next_pipe)
-
+        # PRIORITY 1: Safety penalties (always apply)
         if next_pipe:
-            total_score += self._calculate_gap_danger_penalty(state, next_pipe)
+            gap_danger = self._calculate_gap_danger_penalty(state, next_pipe)
+            total_score += gap_danger
+
+            # If in danger zone, heavily prioritize safety over coins
+            if gap_danger > 0:
+                total_score += self._calculate_navigation_penalty(state, next_pipe) * 2
+            else:
+                # Only consider coins if we're safe
+                coin_reward = self._calculate_coin_reward(state, items)
+                total_score += coin_reward
+
+                if coin_reward == 0:
+                    total_score += self._calculate_navigation_penalty(state, next_pipe)
+        else:
+            coin_reward = self._calculate_coin_reward(state, items)
+            total_score += coin_reward
+
+            if coin_reward == 0:
+                total_score += abs(state.y - SCREEN_MIDDLE_Y) * FALLBACK_PENALTY
 
         total_score += self._calculate_extreme_position_penalty(state)
 

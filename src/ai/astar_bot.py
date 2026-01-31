@@ -4,9 +4,9 @@ import heapq
 
 # A* algorithm constants
 DEFAULT_LOOKAHEAD_STEPS = 7
-MAX_SEARCH_ITERATIONS = 40
-EARLY_TERMINATION_STEPS = 5
-EARLY_TERMINATION_SCORE = 20
+MAX_SEARCH_ITERATIONS = 80
+EARLY_TERMINATION_STEPS = 6
+EARLY_TERMINATION_SCORE = 15
 
 # Physics simulation constants (must match bird.py)
 SIMULATION_DT = 1.0 / 60.0
@@ -163,7 +163,7 @@ class AStarBot:
         hitbox_y = max(0, min(hitbox_y, SCREEN_BOTTOM - int(BIRD_HITBOX_HEIGHT)))
 
         bird_hitbox = {
-            "x": self.game.bird.x + BIRD_HITBOX_OFFSET_X,
+            "x": self.game.bird.x + state.x_offset + BIRD_HITBOX_OFFSET_X,
             "y": hitbox_y,
             "width": BIRD_HITBOX_WIDTH,
             "height": BIRD_HITBOX_HEIGHT,

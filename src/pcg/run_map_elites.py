@@ -63,19 +63,20 @@ def print_best_genomes(archive, n=5):
             f"Gap tightness: {gap_tightness:.2f} | Item richness: {item_richness:.2f}"
         )
         print(f"   Cell: ({difficulty_bin}, {accessibility_bin})")
-        print(f"   Parameters:")
+        print(f"   Level structure:")
 
-        params = genome.params
-        print(
-            f"     Pipes: spacing={params['pipe_spacing']:.1f}, "
-            f"gap={params['gap_size']:.1f}, "
-            f"height_change={params['max_height_change']:.1f}"
-        )
-        print(
-            f"     Spawn rates: coins={params['coin_spawn_rate']:.2f}, "
-            f"powerups={params['powerup_spawn_rate']:.2f}, "
-            f"debuffs={params['debuff_spawn_rate']:.2f}"
-        )
+        # Print concrete level info
+        level = genome.level
+        print(f"     Total pipes: {len(level.pipes)}")
+        print(f"     Total items: {len(level.items)} ({len([i for i in level.items if i.type == 'coin'])} coins)")
+        print(f"     Length: {level.length:.1f} units")
+
+        # Compute average metrics
+        if level.pipes:
+            avg_gap = sum(p.gap_size for p in level.pipes) / len(level.pipes)
+            spacings = [level.pipes[i+1].x - level.pipes[i].x for i in range(len(level.pipes)-1)]
+            avg_spacing = sum(spacings) / len(spacings) if spacings else 0
+            print(f"     Avg gap size: {avg_gap:.1f}, Avg spacing: {avg_spacing:.1f}")
 
 
 def save_best_genomes(archive, output_dir="data/pcg_levels", n=10):
@@ -129,15 +130,6 @@ def main():
         help="Load existing archive and continue evolution",
     )
     parser.add_argument(
-        "--fast", "-f", action="store_true", help="Use fast testing mode (2x speed)"
-    )
-    parser.add_argument(
-        "--ultra-fast",
-        "-u",
-        action="store_true",
-        help="Use ultra-fast mode (10-15x speed, less accurate but good for PCG)",
-    )
-    parser.add_argument(
         "--plot",
         "-p",
         action="store_true",
@@ -153,19 +145,11 @@ def main():
     print("MAP-Elites Level Generation for Flappy Bird")
     print(f"{'='*80}\n")
 
-    # Create level tester
-    if args.ultra_fast:
-        print("Using UltraFastLevelTester (10-15x speed, optimized for PCG)")
-        from pcg.level_tester import UltraFastLevelTester
+    # Always use ultra-fast mode (10-15x speed, optimized for PCG)
+    print("Using UltraFastLevelTester (10-15x speed, optimized for PCG)")
+    from pcg.level_tester import UltraFastLevelTester
 
-        level_tester = UltraFastLevelTester()
-    elif args.fast:
-        print("Using FastLevelTester (2x simulation speed)")
-        level_tester = FastLevelTester()
-    else:
-        from pcg.level_tester import LevelTester
-
-        level_tester = LevelTester()
+    level_tester = UltraFastLevelTester()
 
     # Create runner
     runner = MAPElitesRunner(level_tester=level_tester, verbose=not args.quiet)

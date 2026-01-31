@@ -120,6 +120,8 @@ class Game:
                     self._handle_playing_input(event)
                 elif self.state == "game_over":
                     self._handle_game_over_input(event)
+                elif self.state == "victory":
+                    self._handle_victory_input(event)
 
     def _handle_escape_key(self, event):
         if event.key == pygame.K_ESCAPE:
@@ -190,6 +192,14 @@ class Game:
             self.state = "menu"
             self.reset_game()
 
+    def _handle_victory_input(self, event):
+        if event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
+            self.state = "menu"
+            self.reset_game()
+        elif event.key == pygame.K_ESCAPE:
+            self.state = "menu"
+            self.reset_game()
+
     def update(self, dt):
         if self.bot_mode and self.bot and self.game_started:
             if self.bot.decide_action():
@@ -207,6 +217,12 @@ class Game:
             )
 
             self.scroll_offset += self.scroll_speed * dt
+
+            # Check if level completed
+            if hasattr(self.level_generator, 'concrete_level'):
+                if self.scroll_offset >= self.level_generator.concrete_level.length:
+                    self.win_game()
+                    return
 
             for pipe in self.pipes:
                 pipe.update(self.scroll_speed, dt)
@@ -284,10 +300,13 @@ class Game:
             self.state == "ready"
             or self.state == "playing"
             or self.state == "game_over"
+            or self.state == "victory"
         ):
             self.render_game()
             if self.state == "game_over":
                 self.renderer.render_game_over(self.score, self.coins, self.best_score)
+            elif self.state == "victory":
+                self.renderer.render_victory(self.score, self.coins, self.best_score)
             elif self.state == "ready":
                 self.renderer.render_ready()
 
@@ -369,5 +388,11 @@ class Game:
 
     def end_game(self):
         self.state = "game_over"
+        if self.score > self.best_score:
+            self.best_score = self.score
+
+    def win_game(self):
+        """Called when player completes the level."""
+        self.state = "victory"
         if self.score > self.best_score:
             self.best_score = self.score

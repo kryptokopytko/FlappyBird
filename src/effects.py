@@ -44,6 +44,14 @@ class Effect:
     def get_remaining_time(self) -> float:
         return max(0, self.duration - self.timer)
 
+    def extend_duration(self, additional_duration: float) -> None:
+        """Extend the effect duration by adding time.
+
+        Args:
+            additional_duration: Time to add in seconds
+        """
+        self.duration += additional_duration
+
     def apply(self, game) -> None:
         """Apply effect to game state. Override in subclasses."""
         pass
@@ -71,15 +79,14 @@ class SlowMotionEffect(Effect):
 
     def __init__(self, duration: float = SLOW_MOTION_DURATION):
         super().__init__(duration, "slow_motion")
-        self.original_speed: Optional[float] = None
 
     def apply(self, game) -> None:
-        self.original_speed = game.scroll_speed
+        # Don't modify if already active - handled by extend_duration
         game.scroll_speed *= SLOW_MOTION_MULTIPLIER
 
     def remove(self, game) -> None:
-        if self.original_speed is not None:
-            game.scroll_speed = self.original_speed
+        # Restore by dividing by multiplier
+        game.scroll_speed /= SLOW_MOTION_MULTIPLIER
 
 
 class SmallSizeEffect(Effect):
@@ -101,15 +108,14 @@ class SpeedUpEffect(Effect):
 
     def __init__(self, duration: float = SPEED_UP_DURATION):
         super().__init__(duration, "speed_up")
-        self.original_speed: Optional[float] = None
 
     def apply(self, game) -> None:
-        self.original_speed = game.scroll_speed
+        # Don't modify if already active - handled by extend_duration
         game.scroll_speed *= SPEED_UP_MULTIPLIER
 
     def remove(self, game) -> None:
-        if self.original_speed is not None:
-            game.scroll_speed = self.original_speed
+        # Restore by dividing by multiplier
+        game.scroll_speed /= SPEED_UP_MULTIPLIER
 
 
 class LargeSizeEffect(Effect):
@@ -147,7 +153,10 @@ class EffectManager:
         self.active_effects = []
 
     def add_effect(self, effect_type: str) -> None:
-        """Add a new effect, replacing existing effect of same type.
+        """Add a new effect or extend existing effect of same type.
+
+        If effect already exists, extends its duration.
+        If not, creates new effect.
 
         Args:
             effect_type: Type of effect to add
@@ -156,11 +165,22 @@ class EffectManager:
         if not effect_class:
             return
 
-        self.remove_effect_by_type(effect_type)
+        # Check if effect already exists
+        existing_effect = None
+        for effect in self.active_effects:
+            if effect.type == effect_type:
+                existing_effect = effect
+                break
 
-        effect = effect_class()
-        effect.apply(self.game)
-        self.active_effects.append(effect)
+        if existing_effect:
+            # Extend duration of existing effect
+            new_effect = effect_class()
+            existing_effect.extend_duration(new_effect.duration)
+        else:
+            # Create new effect
+            effect = effect_class()
+            effect.apply(self.game)
+            self.active_effects.append(effect)
 
     def update(self, dt: float) -> None:
         """Update all active effects.

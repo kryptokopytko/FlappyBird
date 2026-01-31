@@ -1,91 +1,235 @@
+"""Level genome - now using concrete level representation instead of parameters."""
+
 import random
+from typing import Dict, Any
 from utils.config import PCG_CONFIG
+from pcg.concrete_level import ConcreteLevel, Pipe, Item
 
 
 class LevelGenome:
     """
-    - Pipe parameters (4): spacing, gap_size, max_height_change, gap_variance
-    - Item spawn rates (3): coin, powerup, debuff
-    - Item placement (4): coin_offset_min/max, item_spacing, gold_probability
+    Genome that stores a concrete level with specific pipe and item positions.
+
+    This replaces the old parametric representation with direct level encoding.
     """
 
-    PARAM_NAMES = [
-        "pipe_spacing",
-        "gap_size",
-        "max_height_change",
-        "gap_center_variance",
-        "coin_spawn_rate",
-        "powerup_spawn_rate",
-        "debuff_spawn_rate",
-        "coin_offset_min",
-        "coin_offset_max",
-        "item_spacing",
-        "gold_coin_probability",
-    ]
-
-    def __init__(self, params=None):
-        bounds = PCG_CONFIG["genome_bounds"]
-
-        if params is None:
-            self.params = {
-                name: random.uniform(bounds[name][0], bounds[name][1])
-                for name in self.PARAM_NAMES
-            }
+    def __init__(self, level: ConcreteLevel = None):
+        if level is None:
+            # Generate random level from random parameters
+            params = self._generate_random_params()
+            self.level = ConcreteLevel.generate_from_params(params, length=900.0)
         else:
-            self.params = {
-                name: self._clip(params.get(name, 0), bounds[name])
-                for name in self.PARAM_NAMES
-            }
+            self.level = level
 
     @staticmethod
-    def _clip(value, bounds):
-        return max(bounds[0], min(bounds[1], value))
+    def _generate_random_params() -> Dict[str, float]:
+        bounds = PCG_CONFIG["genome_bounds"]
+        return {
+            name: random.uniform(bounds[name][0], bounds[name][1])
+            for name in [
+                "pipe_spacing",
+                "gap_size",
+                "max_height_change",
+                "gap_center_variance",
+                "coin_spawn_rate",
+                "powerup_spawn_rate",
+                "debuff_spawn_rate",
+                "coin_offset_min",
+                "coin_offset_max",
+                "item_spacing",
+                "gold_coin_probability",
+            ]
+        }
 
-    def to_vector(self):
-        return [self.params[name] for name in self.PARAM_NAMES]
+    def to_dict(self) -> Dict[str, Any]:
+        return self.level.to_dict()
 
     @classmethod
-    def from_vector(cls, vector):
-        params = {name: value for name, value in zip(cls.PARAM_NAMES, vector)}
-        return cls(params)
+    def from_dict(cls, data: Dict[str, Any]) -> "LevelGenome":
+        level = ConcreteLevel.from_dict(data)
+        return cls(level)
 
-    def copy(self):
-        return LevelGenome(self.params.copy())
+    def copy(self) -> "LevelGenome":
+        # Deep copy the level
+        new_pipes = [Pipe(p.x, p.gap_center, p.gap_size) for p in self.level.pipes]
+        new_items = [Item(i.x, i.y, i.type, i.is_gold) for i in self.level.items]
+        new_level = ConcreteLevel(new_pipes, new_items, self.level.length)
+        return LevelGenome(new_level)
 
-    def get(self, param_name):
-        return self.params.get(param_name)
-
-    def __repr__(self):
-        return f"LevelGenome({self.params})"
-
-    def to_dict(self):
-        return self.params.copy()
-
-    @classmethod
-    def from_dict(cls, data):
-        return cls(data)
-
-    def mutate(self, mutation_rate=0.15, mutation_sigma=0.1):
+    def get(self, param_name: str) -> float:
         """
-        Mutate genome parameters with Gaussian noise.
+        Get a level feature (for compatibility with old API).
+
+        Returns computed features like average gap_size, etc.
+        """
+        if param_name == "gap_size":
+            if not self.level.pipes:
+                return 8.0
+            return sum(p.gap_size for p in self.level.pipes) / len(self.level.pipes)
+
+        elif param_name == "pipe_spacing":
+            if len(self.level.pipes) < 2:
+                return 40.0
+            spacings = [
+                self.level.pipes[i + 1].x - self.level.pipes[i].x
+                for i in range(len(self.level.pipes) - 1)
+            ]
+            return sum(spacings) / len(spacings)
+
+        elif param_name == "coin_spawn_rate":
+            coins = [i for i in self.level.items if i.type == "coin"]
+            if not self.level.pipes:
+                return 0.3
+            return len(coins) / len(self.level.pipes)
+
+        elif param_name == "powerup_spawn_rate":
+            powerups = [i for i in self.level.items if i.type == "powerup"]
+            if not self.level.pipes:
+                return 0.1
+            return len(powerups) / len(self.level.pipes)
+
+        else:
+            # Default values for other params
+            return 0.0
+
+    def mutate(self, mutation_rate=0.25, mutation_sigma=0.15) -> "LevelGenome":
+        """
+        Mutate the concrete level.
+
+        Operations:
+        - Adjust pipe gap_size
+        - Adjust pipe gap_center
+        - Adjust pipe x position
+        - Add/remove pipes
+        - Add/remove items
 
         Args:
-            mutation_rate: Probability of mutating each parameter
-            mutation_sigma: Standard deviation of Gaussian noise (as fraction of param range)
+            mutation_rate: Probability of mutating each element
+            mutation_sigma: Magnitude of mutations (as fraction of valid range)
 
         Returns:
             New mutated LevelGenome instance
         """
-        bounds = PCG_CONFIG["genome_bounds"]
-        mutated_params = {}
+        mutated = self.copy()
 
-        for name in self.PARAM_NAMES:
+        # Mutate pipes
+        for pipe in mutated.level.pipes:
             if random.random() < mutation_rate:
-                param_range = bounds[name][1] - bounds[name][0]
-                noise = random.gauss(0, mutation_sigma * param_range)
-                mutated_value = self.params[name] + noise
-                mutated_params[name] = self._clip(mutated_value, bounds[name])
-            else:
-                mutated_params[name] = self.params[name]
+                # Mutate gap_size
+                if random.random() < 0.4:
+                    delta = random.gauss(0, mutation_sigma * 3.0)  # 3.0 = gap range (10.5-7.5)
+                    pipe.gap_size = max(7.5, min(10.5, pipe.gap_size + delta))
 
-        return LevelGenome(mutated_params)
+                # Mutate gap_center
+                if random.random() < 0.4:
+                    delta = random.gauss(0, mutation_sigma * 12.0)  # 12 = half screen
+                    pipe.gap_center = max(
+                        pipe.gap_size / 2 + 2,
+                        min(24 - pipe.gap_size / 2 - 2, pipe.gap_center + delta),
+                    )
+
+                # Mutate x position slightly
+                if random.random() < 0.2:
+                    delta = random.gauss(0, mutation_sigma * 10.0)
+                    pipe.x = max(30, min(870, pipe.x + delta))
+
+        # Sort pipes by x
+        mutated.level.pipes.sort(key=lambda p: p.x)
+
+        # Maybe add a pipe
+        if random.random() < mutation_rate * 0.3 and len(mutated.level.pipes) < 12:
+            # Find a gap between pipes
+            if len(mutated.level.pipes) >= 2:
+                spacings = [
+                    (mutated.level.pipes[i + 1].x - mutated.level.pipes[i].x, i)
+                    for i in range(len(mutated.level.pipes) - 1)
+                ]
+                spacings.sort(reverse=True)
+
+                # Insert in largest gap
+                if spacings[0][0] > 50:
+                    i = spacings[0][1]
+                    new_x = (mutated.level.pipes[i].x + mutated.level.pipes[i + 1].x) / 2
+                    new_gap_center = (mutated.level.pipes[i].gap_center + mutated.level.pipes[i + 1].gap_center) / 2
+                    new_gap_size = (mutated.level.pipes[i].gap_size + mutated.level.pipes[i + 1].gap_size) / 2
+
+                    mutated.level.pipes.append(Pipe(new_x, new_gap_center, new_gap_size))
+                    mutated.level.pipes.sort(key=lambda p: p.x)
+
+        # Maybe remove a pipe
+        if random.random() < mutation_rate * 0.2 and len(mutated.level.pipes) > 5:
+            mutated.level.pipes.pop(random.randint(0, len(mutated.level.pipes) - 1))
+
+        # Mutate items
+        for item in mutated.level.items:
+            if random.random() < mutation_rate:
+                # Mutate position
+                if random.random() < 0.5:
+                    item.x += random.gauss(0, mutation_sigma * 20.0)
+                    item.x = max(0, min(900, item.x))
+
+                if random.random() < 0.5:
+                    item.y += random.gauss(0, mutation_sigma * 10.0)
+                    item.y = max(2, min(22, item.y))
+
+        # Fix any items that are too close to pipes after mutation
+        for item in mutated.level.items:
+            # Find closest pipe
+            min_dist = float('inf')
+            closest_pipe_idx = -1
+            for i, pipe in enumerate(mutated.level.pipes):
+                dist = abs(item.x - pipe.x)
+                if dist < min_dist:
+                    min_dist = dist
+                    closest_pipe_idx = i
+
+            # If too close to a pipe, move to safe zone between pipes
+            if min_dist < 15 and closest_pipe_idx >= 0:
+                pipe = mutated.level.pipes[closest_pipe_idx]
+                # Try to move between this pipe and the next one
+                if closest_pipe_idx < len(mutated.level.pipes) - 1:
+                    next_pipe = mutated.level.pipes[closest_pipe_idx + 1]
+                    gap_size = next_pipe.x - pipe.x
+                    # Only place in middle if gap is large enough
+                    if gap_size > 30:
+                        item.x = pipe.x + gap_size * 0.5
+                    else:
+                        # Gap too small, place after next pipe
+                        item.x = next_pipe.x + 15
+                elif closest_pipe_idx > 0:
+                    prev_pipe = mutated.level.pipes[closest_pipe_idx - 1]
+                    gap_size = pipe.x - prev_pipe.x
+                    if gap_size > 30:
+                        item.x = prev_pipe.x + gap_size * 0.5
+                    else:
+                        item.x = pipe.x + 15
+                else:
+                    # Move to safe distance after pipe
+                    item.x = pipe.x + 20
+
+        # Maybe add an item (ensure it's in a safe zone)
+        if random.random() < mutation_rate * 0.4 and len(mutated.level.items) < 90:
+            # Pick a random gap between pipes
+            if len(mutated.level.pipes) >= 2:
+                pipe_idx = random.randint(0, len(mutated.level.pipes) - 2)
+                pipe1 = mutated.level.pipes[pipe_idx]
+                pipe2 = mutated.level.pipes[pipe_idx + 1]
+
+                # Place in safe zone between pipes (at least 15 units from each)
+                gap_size = pipe2.x - pipe1.x
+                if gap_size > 30:  # Only add if gap is large enough
+                    x = random.uniform(pipe1.x + 15, pipe2.x - 15)
+                    y = random.uniform(6, 18)
+                    item_type = random.choice(["coin", "coin", "coin", "powerup", "debuff"])
+                    is_gold = random.random() < 0.15 if item_type == "coin" else False
+
+                    mutated.level.items.append(Item(x, y, item_type, is_gold))
+
+        # Maybe remove an item
+        if random.random() < mutation_rate * 0.3 and len(mutated.level.items) > 3:
+            mutated.level.items.pop(random.randint(0, len(mutated.level.items) - 1))
+
+        return mutated
+
+    def __repr__(self):
+        return f"LevelGenome(pipes={len(self.level.pipes)}, items={len(self.level.items)})"
