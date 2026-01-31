@@ -9,6 +9,7 @@ from effects import EffectManager
 from ai.aggressive_bot import AggressiveBot
 from ai.reactive_bot import ReactiveBot
 from ai.coin_collector_bot import CoinCollectorBot
+from ai.flat_bot import FlatBot
 from utils.config import GAME_CONFIG
 
 # Display constants
@@ -363,6 +364,8 @@ class Game:
                 self.bot = ReactiveBot(self)
             elif self.bot_type == "coin_collector":
                 self.bot = CoinCollectorBot(self)
+            elif self.bot_type == "flat":
+                self.bot = FlatBot(self)
             else:
                 self.bot = AggressiveBot(self)
 

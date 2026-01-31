@@ -59,22 +59,77 @@ class MAPElitesRunner:
         return self.archive
 
     def _initialize_archive(self):
-        """Initialize archive with random genomes."""
+        """Initialize archive with strategic coverage targeting corners and edges."""
+        import random
+        from pcg.concrete_level import ConcreteLevel
+
         num_samples = self.config["initial_samples"]
 
         if self.verbose:
-            print(f"\nInitializing archive with {num_samples} random genomes...")
+            print(f"\nInitializing archive with {num_samples} genomes (strategic + random)...")
 
-        for i in range(num_samples):
+        # Phase 1: Strategic initialization (25% of samples) - target corners/edges
+        corner_samples = int(num_samples * 0.25)
+
+        if self.verbose:
+            print(f"  Phase 1: {corner_samples} strategic samples targeting behavior space corners...")
+
+        for i in range(corner_samples):
+            # Target specific regions: corners and edges of behavior space
+            target_gap = random.choice([6.0, 6.5, 8.5, 10.5, 11.0])  # low, low-mid, mid, high-mid, high
+            target_spacing = random.choice([35, 37, 43, 50, 52])   # dense, dense-mid, mid, sparse-mid, sparse
+
+            params = self._generate_random_params()
+            # Override key params to target specific behavior region
+            params["gap_size"] = target_gap + random.uniform(-0.3, 0.3)
+            params["pipe_spacing"] = target_spacing + random.uniform(-2, 2)
+
+            # Create genome from targeted params
+            genome = LevelGenome()
+            genome.level = ConcreteLevel.generate_from_params(params, length=900.0)
+
+            quality, behavior = self._evaluate_genome(genome)
+            self.archive.add(genome, quality, behavior)
+
+        if self.verbose:
+            print(f"  Phase 1 complete. Coverage: {self.archive.get_coverage():.1%}")
+            print(f"  Phase 2: {num_samples - corner_samples} random samples...")
+
+        # Phase 2: Random fill (75% of samples)
+        for i in range(num_samples - corner_samples):
             genome = LevelGenome()  # Random initialization
             quality, behavior = self._evaluate_genome(genome)
             self.archive.add(genome, quality, behavior)
 
-            if self.verbose and (i + 1) % 10 == 0:
+            if self.verbose and (i + 1) % 20 == 0:
                 print(
-                    f"  Initialized {i + 1}/{num_samples} genomes "
+                    f"  Initialized {corner_samples + i + 1}/{num_samples} genomes "
                     f"(coverage: {self.archive.get_coverage():.1%})"
                 )
+
+    @staticmethod
+    def _generate_random_params():
+        """Generate random parameters for level generation."""
+        import random
+        from utils.config import PCG_CONFIG
+
+        bounds = PCG_CONFIG["genome_bounds"]
+        return {
+            name: random.uniform(bounds[name][0], bounds[name][1])
+            for name in [
+                "pipe_spacing",
+                "gap_size",
+                "max_height_change",
+                "gap_center_variance",
+                "coin_spawn_rate",
+                "powerup_spawn_rate",
+                "debuff_spawn_rate",
+                "coin_offset_min",
+                "coin_offset_max",
+                "item_spacing",
+                "gold_coin_probability",
+            ]
+        }
 
     def _evaluate_genome(self, genome: LevelGenome) -> tuple:
         """
@@ -97,7 +152,7 @@ class MAPElitesRunner:
 
         test_results = self.level_tester.test_genome(genome)
 
-        quality, _ = self.evaluator.evaluate_level(test_results)
+        quality, _ = self.evaluator.evaluate_level(test_results, genome)
 
         behavior = self.evaluator.compute_behavior_features(test_results, genome)
 

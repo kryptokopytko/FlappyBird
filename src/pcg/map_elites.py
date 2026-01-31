@@ -29,15 +29,15 @@ class MAPElitesArchive:
         Convert continuous behavior features to discrete grid cell.
 
         Args:
-            behavior: (gap_tightness, item_richness) in [0, 1] range
+            behavior: (gap_tightness, spacing_density) in [0, 1] range
 
         Returns:
             (row, col) grid indices
         """
-        gap_tightness, item_richness = behavior
+        gap_tightness, spacing_density = behavior
 
         row = min(self.dims[0] - 1, int(gap_tightness * self.dims[0]))
-        col = min(self.dims[1] - 1, int(item_richness * self.dims[1]))
+        col = min(self.dims[1] - 1, int(spacing_density * self.dims[1]))
 
         return (row, col)
 
@@ -50,7 +50,7 @@ class MAPElitesArchive:
         Args:
             genome: LevelGenome to add
             quality: Quality score of the genome
-            behavior: (gap_tightness, item_richness) behavior features
+            behavior: (gap_tightness, spacing_density) behavior features
 
         Returns:
             True if genome was added (new cell or better quality), False otherwise

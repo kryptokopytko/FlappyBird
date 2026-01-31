@@ -51,18 +51,20 @@ def print_best_genomes(archive, n=5):
     print(f"{'='*80}")
 
     for i, (genome, quality, cell) in enumerate(elites_sorted[:n], 1):
-        difficulty_bin, accessibility_bin = cell
+        gap_bin, spacing_bin = cell
         dims = archive.dims
 
-        # Convert cell to approximate behavior values
-        gap_tightness = (difficulty_bin + 0.5) / dims[0]
-        item_richness = (accessibility_bin + 0.5) / dims[1]
+        # Get actual computed features from level
+        actual_features = genome.level.compute_features()
+        gap_actual = actual_features.get("gap_tightness", 0.5)
+        spacing_actual = actual_features.get("spacing_density", 0.5)
+        vertical_actual = actual_features.get("vertical_variance", 0.5)
 
         print(
             f"\n{i}. Quality: {quality:.3f} | "
-            f"Gap tightness: {gap_tightness:.2f} | Item richness: {item_richness:.2f}"
+            f"Gap: {gap_actual:.2f} | Spacing: {spacing_actual:.2f} | Vertical: {vertical_actual:.2f}"
         )
-        print(f"   Cell: ({difficulty_bin}, {accessibility_bin})")
+        print(f"   Cell: ({gap_bin}, {spacing_bin})")
         print(f"   Level structure:")
 
         # Print concrete level info

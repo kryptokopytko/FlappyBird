@@ -22,11 +22,12 @@ class LevelEvaluator:
     def __init__(self):
         self.config = PCG_CONFIG["quality"]
 
-    def evaluate_level(self, test_results: Dict[str, List[Dict]]) -> Tuple[float, Dict]:
+    def evaluate_level(self, test_results: Dict[str, List[Dict]], genome=None) -> Tuple[float, Dict]:
         """
         Args:
             test_results: Dict mapping bot_name -> list of run results
                          Each run result contains: {score, distance, coins, survived, death_reason}
+            genome: Optional LevelGenome for computing structural penalties
 
         Returns:
             (quality_score, metrics_dict): Overall quality and detailed metrics
@@ -45,14 +46,24 @@ class LevelEvaluator:
         control = self._compute_control(test_results)
         metrics["control"] = control
 
+        # Difficulty check: penalize if flat_bot performs too well
+        flat_bot_penalty = self._compute_flat_bot_penalty(test_results)
+        metrics["flat_bot_penalty"] = flat_bot_penalty
+
+        # Vertical variance penalty: penalize flat/boring levels
+        vertical_penalty = self._compute_vertical_variance_penalty(genome)
+        metrics["vertical_penalty"] = vertical_penalty
+
         quality = (
             self.config["playability_weight"] * playability
             + self.config["balance_weight"] * balance
             + self.config["progression_weight"] * progression
+            - flat_bot_penalty  # Subtract penalty for easy levels
+            - vertical_penalty  # Subtract penalty for flat/boring levels
         )
 
-        if control < self.config["control_threshold"]:
-            quality *= 0.5  # penalty
+        # Control penalty removed - it was penalizing 95% of levels due to bot capability differences
+        # instead of measuring actual player skill variance
 
         metrics["quality"] = quality
 
@@ -96,31 +107,41 @@ class LevelEvaluator:
 
     def _compute_balance(self, test_results: Dict[str, List[Dict]]) -> float:
         """
-        Compute balance score based on performance variance between bots.
+        Compute balance score based on relative bot performance.
 
-        Good levels should challenge all bot types relatively equally.
+        Uses distance-based ratio instead of CV to handle bot capability differences.
+        Bots have different strengths (coin_collector always finishes, others may fail),
+        so we measure relative performance ratio rather than absolute variance.
         """
-        bot_avg_scores = {}
+        bot_avg_distances = {}
 
         for bot_name, runs in test_results.items():
             if runs:
-                bot_avg_scores[bot_name] = np.mean([r["score"] for r in runs])
+                bot_avg_distances[bot_name] = np.mean([r["distance"] for r in runs])
 
-        if len(bot_avg_scores) < 2:
+        if len(bot_avg_distances) < 2:
             return 1.0
 
-        scores = list(bot_avg_scores.values())
+        distances = list(bot_avg_distances.values())
+        max_dist = max(distances)
+        mean_dist = np.mean(distances)
 
-        # Coefficient of variation (std / mean)
-        if np.mean(scores) > 0:
-            cv = np.std(scores) / np.mean(scores)
-            # Lower CV = better balance
-            # Map CV [0, 1] -> balance [1, 0]
-            balance = max(0.0, 1.0 - cv)
+        if mean_dist > 0:
+            # Ratio of max to mean (ideal: 1.0-1.2x)
+            ratio = max_dist / mean_dist
+
+            # Saturation: don't penalize if max is only 1.2x mean
+            # Reduced from 1.5 to decrease saturation (60% → less saturation)
+            if ratio <= 1.2:
+                balance = 1.0
+            else:
+                # Logarithmic penalty for higher ratios
+                # ratio=1.5 → balance=0.77, ratio=2.0 → balance=0.56
+                balance = 1.0 / (1.0 + (ratio - 1.2))
         else:
             balance = 0.0
 
-        return balance
+        return min(1.0, max(0.0, balance))
 
     def _compute_progression(self, test_results: Dict[str, List[Dict]]) -> float:
         """
@@ -203,21 +224,95 @@ class LevelEvaluator:
 
         return control
 
+    def _compute_flat_bot_penalty(self, test_results: Dict[str, List[Dict]]) -> float:
+        """
+        Compute penalty if flat_bot performs too well.
+
+        Flat_bot is a stupid bot that only works on flat/easy levels.
+        If it survives or travels far, the level is too easy and should be penalized.
+
+        Returns:
+            Penalty score (0 to 1+, higher = worse)
+        """
+        if "flat" not in test_results:
+            return 0.0
+
+        flat_runs = test_results["flat"]
+        if not flat_runs:
+            return 0.0
+
+        # Average distance traveled by flat_bot
+        avg_distance = sum(r["distance"] for r in flat_runs) / len(flat_runs)
+        survival_rate = sum(1 for r in flat_runs if r["survived"]) / len(flat_runs)
+
+        # Penalize based on how far flat_bot traveled
+        # 0-100: no penalty (good, died early)
+        # 100-300: small penalty (getting too far)
+        # 300-600: medium penalty (way too easy)
+        # 600+: large penalty (trivially easy)
+        distance_penalty = 0.0
+        if avg_distance > 600:
+            distance_penalty = 0.8
+        elif avg_distance > 300:
+            distance_penalty = 0.5
+        elif avg_distance > 100:
+            distance_penalty = 0.2
+
+        # Additional penalty if flat_bot survives
+        survival_penalty = survival_rate * 0.5
+
+        total_penalty = distance_penalty + survival_penalty
+
+        return min(1.5, total_penalty)  # Cap at 1.5
+
+    def _compute_vertical_variance_penalty(self, genome) -> float:
+        """
+        Compute penalty for low vertical variance (flat/boring levels).
+
+        Levels should have variety in pipe heights to be interesting.
+        Low vertical_variance means pipes are at similar heights = boring.
+
+        Returns:
+            Penalty score (0 to 1, higher = worse)
+        """
+        if genome is None:
+            return 0.0
+
+        features = genome.level.compute_features()
+        vertical_variance = features.get("vertical_variance", 0.5)
+
+        # Penalize low vertical variance
+        # vertical_variance < 0.2 → high penalty (very flat)
+        # vertical_variance < 0.3 → medium penalty
+        # vertical_variance < 0.4 → small penalty
+        # vertical_variance >= 0.4 → no penalty (good variety)
+
+        if vertical_variance < 0.2:
+            return 1.0  # Very flat - strong penalty
+        elif vertical_variance < 0.3:
+            return 0.6  # Somewhat flat - medium penalty
+        elif vertical_variance < 0.4:
+            return 0.3  # Slightly flat - small penalty
+        else:
+            return 0.0  # Good variety - no penalty
+
     def compute_behavior_features(
         self, test_results: Dict[str, List[Dict]], genome=None
     ) -> Tuple[float, float]:
         """
         Compute behavior characterization for MAP-Elites.
 
+        Uses level structure features that are independent of quality metrics.
+
         Args:
             test_results: Bot test results
             genome: LevelGenome instance (optional, for genome-based features)
 
         Returns:
-            (gap_tightness, item_richness): Two features for 2D behavior space
+            (gap_tightness, spacing_density): Two features for 2D behavior space
 
             - Gap_tightness: How tight are gaps? (0=large gaps, 1=small gaps)
-            - Item_richness: How many items spawn? (0=sparse items, 1=rich items)
+            - Spacing_density: How densely packed are pipes? (0=sparse, 1=dense)
         """
         all_runs = [run for runs in test_results.values() for run in runs]
 
@@ -225,26 +320,13 @@ class LevelEvaluator:
             return (0.5, 0.5)
 
         if genome is not None:
-            bounds = PCG_CONFIG["genome_bounds"]
-            gap_min, gap_max = bounds["gap_size"]
-            coin_min, coin_max = bounds["coin_spawn_rate"]
-            powerup_min, powerup_max = bounds["powerup_spawn_rate"]
-
-            gap_size = genome.get("gap_size")
-            gap_tightness = (gap_max - gap_size) / (gap_max - gap_min)
-            gap_tightness = max(0.0, min(1.0, gap_tightness))
-
-            coin_rate = genome.get("coin_spawn_rate")
-            powerup_rate = genome.get("powerup_spawn_rate")
-
-            coin_normalized = (coin_rate - coin_min) / (coin_max - coin_min)
-            powerup_normalized = (powerup_rate - powerup_min) / (powerup_max - powerup_min)
-
-            item_richness = 0.7 * coin_normalized + 0.3 * powerup_normalized
-            item_richness = max(0.0, min(1.0, item_richness))
+            # Use concrete level features instead of abstract parameters
+            features = genome.level.compute_features()
+            gap_tightness = features.get("gap_tightness", 0.5)
+            spacing_density = features.get("spacing_density", 0.5)
         else:
             # Fallback if genome not provided
             gap_tightness = 0.5
-            item_richness = 0.5
+            spacing_density = 0.5
 
-        return (max(0.0, min(1.0, gap_tightness)), max(0.0, min(1.0, item_richness)))
+        return (max(0.0, min(1.0, gap_tightness)), max(0.0, min(1.0, spacing_density)))

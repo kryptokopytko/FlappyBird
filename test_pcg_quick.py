@@ -97,7 +97,7 @@ def test_evaluator():
     }
 
     print("\nEvaluating mock test results...")
-    quality, metrics = evaluator.evaluate_level(test_results)
+    quality, metrics = evaluator.evaluate_level(test_results, genome=None)
 
     print(f"\nQuality score: {quality:.3f}")
     print(f"Metrics:")

@@ -119,8 +119,8 @@ class LevelGenome:
         # Sort pipes by x
         mutated.level.pipes.sort(key=lambda p: p.x)
 
-        # Maybe add a pipe
-        if random.random() < mutation_rate * 0.3 and len(mutated.level.pipes) < 12:
+        # Maybe add a pipe (increased from 0.3 to 0.6 for better structural diversity)
+        if random.random() < mutation_rate * 0.6 and len(mutated.level.pipes) < 12:
             # Find a gap between pipes
             if len(mutated.level.pipes) >= 2:
                 spacings = [
@@ -139,8 +139,8 @@ class LevelGenome:
                     mutated.level.pipes.append(Pipe(new_x, new_gap_center, new_gap_size))
                     mutated.level.pipes.sort(key=lambda p: p.x)
 
-        # Maybe remove a pipe
-        if random.random() < mutation_rate * 0.2 and len(mutated.level.pipes) > 5:
+        # Maybe remove a pipe (increased from 0.2 to 0.5 for better exploration)
+        if random.random() < mutation_rate * 0.5 and len(mutated.level.pipes) > 5:
             mutated.level.pipes.pop(random.randint(0, len(mutated.level.pipes) - 1))
 
         # Mutate items

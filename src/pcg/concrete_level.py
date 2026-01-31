@@ -153,18 +153,42 @@ class ConcreteLevel:
     def compute_features(self) -> Dict[str, float]:
         """Compute behavioral features for MAP-Elites."""
         if not self.pipes:
-            return {"gap_tightness": 0.5, "item_richness": 0.5}
+            return {"gap_tightness": 0.5, "vertical_variance": 0.5, "spacing_density": 0.5}
 
         # Gap tightness: average gap size (smaller = tighter)
         avg_gap = sum(p.gap_size for p in self.pipes) / len(self.pipes)
         gap_tightness = (11.0 - avg_gap) / (11.0 - 6.0)  # Normalize to [0, 1]
         gap_tightness = max(0.0, min(1.0, gap_tightness))
 
-        # Item richness: items per pipe
-        coins = [i for i in self.items if i.type == "coin"]
-        powerups = [i for i in self.items if i.type == "powerup"]
+        # Vertical variance: how much pipes jump up/down (height changes)
+        if len(self.pipes) > 1:
+            height_changes = [
+                abs(self.pipes[i + 1].gap_center - self.pipes[i].gap_center)
+                for i in range(len(self.pipes) - 1)
+            ]
+            avg_height_change = sum(height_changes) / len(height_changes)
+            # Normalize to [0, 1]: 0-5 units of change maps to 0-1
+            # Use smaller divisor to spread out the range better
+            vertical_variance = min(1.0, avg_height_change / 5.0)
+        else:
+            vertical_variance = 0.5
 
-        items_per_pipe = (len(coins) + len(powerups)) / max(1, len(self.pipes))
-        item_richness = min(1.0, items_per_pipe / 2.0)  # 2 items per pipe = max
+        # Spacing density: how tight pipes are spaced (affects timing pressure)
+        if len(self.pipes) > 1:
+            spacings = [
+                self.pipes[i + 1].x - self.pipes[i].x
+                for i in range(len(self.pipes) - 1)
+            ]
+            avg_spacing = sum(spacings) / len(spacings)
+            # Normalize: 35-52 range (from config) -> [0, 1]
+            # Smaller spacing = higher density = higher value
+            spacing_density = (52 - avg_spacing) / (52 - 35)
+            spacing_density = max(0.0, min(1.0, spacing_density))
+        else:
+            spacing_density = 0.5
 
-        return {"gap_tightness": gap_tightness, "item_richness": item_richness}
+        return {
+            "gap_tightness": gap_tightness,
+            "vertical_variance": vertical_variance,
+            "spacing_density": spacing_density,
+        }

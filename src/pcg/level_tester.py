@@ -22,7 +22,7 @@ class LevelTester:
     def __init__(self):
         self.dt = 1.0 / 60
         self.test_duration = 30.0
-        self.bots = ["aggressive", "coin_collector"]
+        self.bots = ["aggressive", "reactive", "coin_collector", "flat"]
 
     def test_genome(self, genome: LevelGenome) -> Dict[str, List[Dict]]:
         """
@@ -78,7 +78,8 @@ class LevelTester:
             if sim_time >= self.test_duration:
                 break
 
-        survived = game.state == "playing"
+        # Bot survived if still playing OR won the level
+        survived = game.state in ["playing", "victory"]
 
         return {
             "score": game.score,
