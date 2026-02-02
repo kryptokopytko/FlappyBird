@@ -105,12 +105,12 @@ class SlowMotionEffect(Effect):
         super().__init__(duration, "slow_motion")
 
     def apply(self, game) -> None:
-        # Don't modify if already active - handled by extend_duration
-        game.scroll_speed *= SLOW_MOTION_MULTIPLIER
+        # Effect is applied via multiplier in EffectManager
+        pass
 
     def remove(self, game) -> None:
-        # Restore by dividing by multiplier
-        game.scroll_speed /= SLOW_MOTION_MULTIPLIER
+        # Effect is removed automatically when inactive
+        pass
 
 
 class SmallSizeEffect(Effect):
@@ -134,12 +134,12 @@ class SpeedUpEffect(Effect):
         super().__init__(duration, "speed_up")
 
     def apply(self, game) -> None:
-        # Don't modify if already active - handled by extend_duration
-        game.scroll_speed *= SPEED_UP_MULTIPLIER
+        # Effect is applied via multiplier in EffectManager
+        pass
 
     def remove(self, game) -> None:
-        # Restore by dividing by multiplier
-        game.scroll_speed /= SPEED_UP_MULTIPLIER
+        # Effect is removed automatically when inactive
+        pass
 
 
 class LargeSizeEffect(Effect):
@@ -233,3 +233,17 @@ class EffectManager:
         for effect in self.active_effects[:]:
             effect.remove(self.game)
         self.active_effects.clear()
+
+    def get_scroll_speed_multiplier(self) -> float:
+        """Calculate combined scroll speed multiplier from active effects.
+
+        Returns:
+            Combined multiplier from all active speed-affecting effects
+        """
+        multiplier = 1.0
+        for effect in self.active_effects:
+            if effect.type == "slow_motion":
+                multiplier *= SLOW_MOTION_MULTIPLIER
+            elif effect.type == "speed_up":
+                multiplier *= SPEED_UP_MULTIPLIER
+        return multiplier

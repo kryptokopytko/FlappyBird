@@ -215,10 +215,12 @@ class Game:
             self.bird.update(dt)
 
             self.time_elapsed += dt
-            self.scroll_speed = min(
+            base_speed = min(
                 self.base_scroll_speed + (self.time_elapsed * self.speed_increase_rate),
                 self.max_scroll_speed,
             )
+            # Apply effect multipliers (slow motion, speed up, etc.)
+            self.scroll_speed = base_speed * self.effect_manager.get_scroll_speed_multiplier()
 
             self.scroll_offset += self.scroll_speed * dt
 
