@@ -49,7 +49,7 @@ def main():
         import pygame
         pygame.init()
 
-    from game_graphical import Game
+    from rendering.game_graphical import Game
 
     game = Game(headless=args.headless)
 

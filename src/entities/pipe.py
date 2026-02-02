@@ -1,4 +1,4 @@
-from utils.config import GAME_CONFIG
+from core.config import GAME_CONFIG
 
 PIPE_WIDTH = 6
 PIPE_HITBOX_INSET = 1
@@ -11,14 +11,6 @@ class Pipe:
     """Vertical pipe obstacle with a gap for the bird to pass through."""
 
     def __init__(self, x: float, y_top: float, y_bottom: float, gap_size: float):
-        """Initialize pipe.
-
-        Args:
-            x: X position
-            y_top: Y coordinate of top of gap
-            y_bottom: Y coordinate of bottom of gap
-            gap_size: Size of gap between pipes
-        """
         self.x = x
         self.y_top = y_top
         self.y_bottom = y_bottom

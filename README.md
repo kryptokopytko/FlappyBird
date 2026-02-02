@@ -1,39 +1,157 @@
 # Flappy Bird with Procedural Content Generation
+**Authors:** Katarzyna Szmagara, Kornelia Makowska
 
-### Implementation Status
+## Overview
+This project implements a **Flappy Bird–style game** with additional mechanics: coins, power-ups, and debuffs.  
+Levels are generated using **procedural content generation (PCG)**, including **MAP-Elites**, **Monte Carlo Tree Search (MCTS)**, and **novelty search**, allowing exploration of level diversity, difficulty, and balance.  
 
-## COMPLETED:
-- ✅ Core game mechanics
-- ✅ Grafical mode
-- ✅ Three AI bot strategies
-  - **Aggressive Bot**: A* pathfinding with risk-taking
-  - **Reactive Bot**: Balanced survival vs. progress
-  - **Coin Collector Bot**: Prioritizes coin collection
-- ✅ First approach to procedural level generation using MAP-Elites
+## AI Bots
+AI-controlled bots evaluate levels with distinct play styles:
 
-## REMAINING:
-- [ ] Improve and expand level generator
-- [ ] Implement additional generation methods (including search-based approaches)
-- [ ] Collect detailed metrics and statistical analysis
-- [ ] Compare level generation methods
-- [ ] Save interesting levels
+- **Aggressive Bot**: Jumps minimally, only when absolutely necessary.  
+- **Reactive Bot**: Responds to current position relative to gap center.  
+- **Coin Collector Bot**: Prioritizes collecting coins while maintaining safety.
+
+## Goal
+The main goal is to explore how **different level generation methods affect gameplay**, and to provide a framework for **systematic AI-based level evaluation**.
+
+## Project Structure
+
+```
+FlappyBird/
+├── src/
+│   ├── main.py                    # Entry point
+│   ├── entities/                  # Game entities (bird, pipe, powerups)
+│   ├── core/                      # Game entities (bird, pipe, powerups)
+│   ├── ai_bots/                   # Configuration and utils
+│   │   ├── aggressive_bot.py
+│   │   ├── reactive_bot.py
+│   │   └── astar_bot.py           
+│   ├── pcg/                       # Level generators
+│   │   ├── map_elites/        
+│   │   ├── mcts/     
+│   │   ├── novelty/     
+│   │   ├── evaluator.py           # Quality metrics
+│   └── rendering/
+│   └── tests/
+├── data/                          # Generated levels and test statistics
+```
+
+## User guide
+
+### Items in the Game
+
+| Item Name | Type | Image |
+|-----------|------|-------|
+| COIN | coin | ![COIN](images/image-3.png) |
+| Shield | power-up | ![POWERUP_SHIELD](images/image-4.png) |
+| Slow Motion | power-up | ![POWERUP_SLOW_MOTION](images/image-6.png) |
+| Small Size | power-up | ![POWERUP_SMALL](images/image-5.png) |
+| Speed Up | debuff | ![DEBUFF_SPEED_UP](images/image-1.png) |
+| Large Size | debuff | ![DEBUFF_LARGE](images/image-2.png) |
 
 
-### Current PCG: MAP-Elites
+Points awarded for collecting coins are **non-linearly scaled** to reward collecting more coins while preventing excessive score growth.
+The score is computed as:
 
-**Level Genome (11 parameters):**
-- Pipe parameters (4): spacing, gap_size, max_height_change, gap_variance
-- Item spawn rates (3): coin, powerup, debuff
-- Item placement (4): coin_offset_min/max, item_spacing, gold_probability
+- No coins → **0 points**
+- For at least one coin, the reward grows according to a **sub-exponential power function**:
+  
+  \[
+  \text{points} = \min\left( (1 + \frac{n}{3})^{1.5},\ 130 \right)
+  \]
 
-**Behavior Space (2D):**
-- **Difficulty** (0=easy, 1=hard): survival rate, progress
-- **Accessibility** (0=hard, 1=easy): item collection rate
+### Running the Game
 
-**Evolution Process:**
-1. Initialize with 50 random genomes
-2. Select random elite from archive
-3. Mutate with Gaussian noise (σ=0.1, rate=0.15)
-4. Evaluate with 3 bots × 3 runs each
-5. Add to archive if better quality
-6. Repeat for N iterations (default: 1000)
+To start the game, run:
+
+```bash
+python3 src/main.py
+```
+
+Once launched, you can select the game mode directly from the UI:
+- Manual Play – control the bird using Space to flap.
+- Bot Play – let an AI bot control the bird.
+
+Levels are generated pseudorandomly based on parameters defined in GAME_CONFIG (see core/config).
+
+For more advanced use cases (e.g. automated testing or AI evaluation), the game can also be run with additional command-line arguments:
+
+--bot {aggressive, reactive, coin_collector}
+Starts the game with a selected AI bot without using the UI.
+
+--headless (or --no-graphics)
+Runs the game without rendering graphics. Intended for automated experiments.
+
+--test-duration <seconds>
+Sets the duration of the test run in seconds
+(default: 20, available only in headless mode).
+
+
+## Procedural Content Generation
+
+### Map Elites
+
+```bash
+# Generate levels
+python3 src/pcg/map_elites/run_map_elites.py
+```
+
+Optional arguments (more parameters in /src/core/config):
+--iterations, -n
+
+--initial-samples, -i
+
+--output, -o
+
+--plot, -p
+Generate and display a heatmap visualization after the run finishes.
+
+```
+**Output:**
+- Archive: `data/map_elites_archive.json`
+- Top levels: `data/pcg_levels/level_top*_q*.json`
+- Console: Coverage, quality range, top 5 levels
+
+```bash
+# Test bots on best map elites levels
+python3 tests/test_top3_levels.py
+```
+
+### MCTS
+
+```bash
+# Generate levels
+python3 src/pcg/mcts/run_mcts_qd.py
+
+# Test levels
+python3 src/tests/test_mcts_levels.py
+```
+
+### Novelty
+
+```bash
+# Generate levels
+python3 src/pcg/novelty/run_novelty_search.py
+
+# Test levels
+python3 src/tests/test_novelty_levels.py
+```
+
+## Level Quality Metrics
+
+Quality is computed from:
+
+1. **Playability** (35%):
+   - Survival rate (~50% target)
+   - Average distance traveled
+   - No instant deaths
+
+2. **Balance** (35%):
+   - Different bots perform similarly
+   - Low coefficient of variation
+
+3. **Progression** (30%):
+   - Smooth difficulty curve
+   - Score increases with distance
+

@@ -1,6 +1,6 @@
 import numpy as np
 from typing import Dict, List, Tuple
-from utils.config import PCG_CONFIG
+from core.config import PCG_CONFIG
 
 INSTANT_DEATH_THRESHOLD = 50
 EXPECTED_LEVEL_LENGTH = 900

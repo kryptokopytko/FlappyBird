@@ -10,13 +10,13 @@ POWERUP_HEIGHT = 3
 
 DEBUFF_TYPES = {DEBUFF_SPEED_UP, DEBUFF_LARGE}
 
+POWERUPS = [POWERUP_SHIELD, POWERUP_SLOW_MOTION, POWERUP_SMALL, DEBUFF_SPEED_UP, DEBUFF_LARGE]
 
 class PowerUp:
     """Collectible powerup or debuff item."""
 
     def __init__(self, x: float, y: float, powerup_type: str):
-        """Initialize powerup/debuff.
-
+        """
         Args:
             x: X position
             y: Y position

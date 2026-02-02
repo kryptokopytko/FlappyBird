@@ -1,6 +1,6 @@
 """Bird entity with physics and powerup management."""
 
-from utils.config import GAME_CONFIG
+from core.config import GAME_CONFIG
 
 BIRD_SIZES = {
     "small": {"width": 4, "height": 2},
@@ -46,7 +46,7 @@ class Bird:
 
     def get_hitbox(self) -> dict:
         """
-        s            Dictionary with x, y, width, height of hitbox
+        Dictionary with x, y, width, height of hitbox
         """
         hitbox_w = self.width * HITBOX_SCALE
         hitbox_h = self.height * HITBOX_SCALE
