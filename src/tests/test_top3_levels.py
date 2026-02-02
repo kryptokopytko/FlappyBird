@@ -145,7 +145,8 @@ def test_level_with_bots(genome, level_info):
     print(f"  Press SPACE to skip to next bot, ESC to quit")
 
     # bot_types = ["coin_collector"]
-    bot_types = ["aggressive", "reactive", "coin_collector", "flat"]
+    # bot_types = ["aggressive", "reactive", "coin_collector", "flat"]
+    bot_types = ["aggressive", "reactive", "coin_collector"]
     bot_stats = []
 
     for bot_type in bot_types:

@@ -96,7 +96,7 @@ class GraphicalRenderer:
             border = 0.5
             shield_surface = pygame.Surface((scaled_w + 2*border, scaled_h + 2*border), pygame.SRCALPHA)
 
-            pygame.draw.ellipse(shield_surface, (0, 200, 255, 150), shield_surface.get_rect())
+            pygame.draw.ellipse(shield_surface, (180, 140, 255, 180), shield_surface.get_rect())
             shield_surface.blit(scaled_sprite, (border, border))
             scaled_sprite = shield_surface
             scaled_w += 2*border
