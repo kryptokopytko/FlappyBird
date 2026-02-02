@@ -107,7 +107,6 @@ Optional arguments (more parameters in /src/core/config):
 --plot, -p
 Generate and display a heatmap visualization after the run finishes.
 
-```
 **Output:**
 - Archive: `data/map_elites_archive.json`
 - Top levels: `data/pcg_levels/level_top*_q*.json`
@@ -115,7 +114,7 @@ Generate and display a heatmap visualization after the run finishes.
 
 ```bash
 # Test bots on best map elites levels
-python3 tests/test_top3_levels.py
+python3 src/tests/test_top3_levels.py
 ```
 
 ### MCTS
