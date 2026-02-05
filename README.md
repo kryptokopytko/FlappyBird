@@ -1,18 +1,22 @@
 # Flappy Bird with Procedural Content Generation
+
 **Authors:** Katarzyna Szmagara, Kornelia Makowska
 
 ## Overview
+
 This project implements a **Flappy Bird–style game** with additional mechanics: coins, power-ups, and debuffs.  
-Levels are generated using **procedural content generation (PCG)**, including **MAP-Elites**, **Monte Carlo Tree Search (MCTS)**, and **novelty search**, allowing exploration of level diversity, difficulty, and balance.  
+Levels are generated using **procedural content generation (PCG)**, including **MAP-Elites**, **Monte Carlo Tree Search (MCTS)**, and **novelty search**, allowing exploration of level diversity, difficulty, and balance.
 
 ## AI Bots
+
 AI-controlled bots evaluate levels with distinct play styles:
 
-- **Aggressive Bot**: Jumps minimally, only when absolutely necessary.  
-- **Reactive Bot**: Responds to current position relative to gap center.  
+- **Aggressive Bot**: Jumps minimally, only when absolutely necessary.
+- **Reactive Bot**: Responds to current position relative to gap center.
 - **Coin Collector Bot**: Prioritizes collecting coins while maintaining safety.
 
 ## Goal
+
 The main goal is to explore how **different level generation methods affect gameplay**, and to provide a framework for **systematic AI-based level evaluation**.
 
 ## Project Structure
@@ -26,11 +30,11 @@ FlappyBird/
 │   ├── ai_bots/                   # Configuration and utils
 │   │   ├── aggressive_bot.py
 │   │   ├── reactive_bot.py
-│   │   └── astar_bot.py           
+│   │   └── astar_bot.py
 │   ├── pcg/                       # Level generators
-│   │   ├── map_elites/        
-│   │   ├── mcts/     
-│   │   ├── novelty/     
+│   │   ├── map_elites/
+│   │   ├── mcts/
+│   │   ├── novelty/
 │   │   ├── evaluator.py           # Quality metrics
 │   └── rendering/
 │   └── tests/
@@ -41,22 +45,21 @@ FlappyBird/
 
 ### Items in the Game
 
-| Item Name | Type | Image |
-|-----------|------|-------|
-| COIN | coin | ![COIN](images/image-3.png) |
-| Shield | power-up | ![POWERUP_SHIELD](images/image-4.png) |
+| Item Name   | Type     | Image                                      |
+| ----------- | -------- | ------------------------------------------ |
+| COIN        | coin     | ![COIN](images/image-3.png)                |
+| Shield      | power-up | ![POWERUP_SHIELD](images/image-4.png)      |
 | Slow Motion | power-up | ![POWERUP_SLOW_MOTION](images/image-6.png) |
-| Small Size | power-up | ![POWERUP_SMALL](images/image-5.png) |
-| Speed Up | debuff | ![DEBUFF_SPEED_UP](images/image-1.png) |
-| Large Size | debuff | ![DEBUFF_LARGE](images/image-2.png) |
-
+| Small Size  | power-up | ![POWERUP_SMALL](images/image-5.png)       |
+| Speed Up    | debuff   | ![DEBUFF_SPEED_UP](images/image-1.png)     |
+| Large Size  | debuff   | ![DEBUFF_LARGE](images/image-2.png)        |
 
 Points awarded for collecting coins are **non-linearly scaled** to reward collecting more coins while preventing excessive score growth.
 The score is computed as:
 
 - No coins → **0 points**
 - For at least one coin, the reward grows according to a **sub-exponential power function**:
-  
+
   \[
   \text{points} = \min\left( (1 + \frac{n}{3})^{1.5},\ 130 \right)
   \]
@@ -70,6 +73,7 @@ python3 src/main.py
 ```
 
 Once launched, you can select the game mode directly from the UI:
+
 - Manual Play – control the bird using Space to flap.
 - Bot Play – let an AI bot control the bird.
 
@@ -86,7 +90,6 @@ Runs the game without rendering graphics. Intended for automated experiments.
 --test-duration <seconds>
 Sets the duration of the test run in seconds
 (default: 20, available only in headless mode).
-
 
 ## Procedural Content Generation
 
@@ -108,6 +111,7 @@ Optional arguments (more parameters in /src/core/config):
 Generate and display a heatmap visualization after the run finishes.
 
 **Output:**
+
 - Archive: `data/map_elites_archive.json`
 - Top levels: `data/pcg_levels/level_top*_q*.json`
 - Console: Coverage, quality range, top 5 levels
@@ -142,15 +146,18 @@ python3 src/tests/test_novelty_levels.py
 Quality is computed from:
 
 1. **Playability** (30%):
+
    - Survival rate (~25% target)
    - Average distance traveled
    - No instant deaths
 
 2. **Hardness** (30%):
+
    - Gap tightness (smaller gaps = harder)
    - Spacing density (closer pipes = harder)
 
 3. **Progression** (25%):
+
    - Smooth difficulty curve
    - Score increases with distance
 
@@ -159,3 +166,6 @@ Quality is computed from:
    - Power-up/buff distribution (~15% of pipes)
    - Variety bonus for diverse items
 
+## Results
+
+![PCG Algorithm Comparison](pcg_comparison_full.png)
