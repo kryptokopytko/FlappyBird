@@ -86,11 +86,19 @@ class CoinCollectorBot(AStarBot):
                 coin_reward = self._calculate_coin_reward(state, items)
                 total_score += coin_reward
 
+                # Also consider buffs/debuffs (lower priority than coins)
+                item_score = self.evaluate_items(state, items)
+                total_score += item_score * 0.3  # Lower weight than coins
+
                 if coin_reward == 0:
                     total_score += self._calculate_navigation_penalty(state, next_pipe)
         else:
             coin_reward = self._calculate_coin_reward(state, items)
             total_score += coin_reward
+
+            # Also consider buffs/debuffs
+            item_score = self.evaluate_items(state, items)
+            total_score += item_score * 0.3
 
             if coin_reward == 0:
                 total_score += abs(state.y - SCREEN_MIDDLE_Y) * FALLBACK_PENALTY

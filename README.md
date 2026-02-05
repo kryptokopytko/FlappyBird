@@ -141,16 +141,21 @@ python3 src/tests/test_novelty_levels.py
 
 Quality is computed from:
 
-1. **Playability** (35%):
-   - Survival rate (~50% target)
+1. **Playability** (30%):
+   - Survival rate (~25% target)
    - Average distance traveled
    - No instant deaths
 
-2. **Balance** (35%):
-   - Different bots perform similarly
-   - Low coefficient of variation
+2. **Hardness** (30%):
+   - Gap tightness (smaller gaps = harder)
+   - Spacing density (closer pipes = harder)
 
-3. **Progression** (30%):
+3. **Progression** (25%):
    - Smooth difficulty curve
    - Score increases with distance
+
+4. **Item Richness** (15%):
+   - Coin distribution (~40% of pipes)
+   - Power-up/buff distribution (~15% of pipes)
+   - Variety bonus for diverse items
 

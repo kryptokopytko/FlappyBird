@@ -38,10 +38,11 @@ PCG_CONFIG = {
         "bots": ["aggressive", "reactive", "coin_collector"],
     },
     "quality": {
-        "playability_weight": 0.35,
-        "balance_weight": 0.35,
-        "progression_weight": 0.30,
-        "target_survival_rate": 0.50,
+        "playability_weight": 0.30,
+        "hardness_weight": 0.30,
+        "progression_weight": 0.25,
+        "item_richness_weight": 0.15,
+        "target_survival_rate": 0.25,
         "control_threshold": 0.5,
     },
     "genome_bounds": {

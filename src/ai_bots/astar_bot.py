@@ -235,6 +235,54 @@ class AStarBot:
         """
         raise NotImplementedError("Subclasses must implement heuristic()")
 
+    def evaluate_items(self, state, items):
+        """
+        Evaluate nearby items (buffs and debuffs).
+        Lower priority than safety - small bonuses/penalties.
+
+        Args:
+            state: Current state
+            items: List of items (Coin or PowerUp objects)
+
+        Returns:
+            Score adjustment (negative = good, positive = bad)
+        """
+        from entities.coin import Coin
+        from entities.powerup import PowerUp
+
+        score = 0
+        bird_x = self.game.bird.x + state.x_offset
+
+        # Constants for item evaluation
+        ITEM_SEARCH_DISTANCE = 30
+        BUFF_REWARD = 2.0  # Small reward for buffs
+        DEBUFF_PENALTY = 3.0  # Small penalty for debuffs
+        DISTANCE_WEIGHT = 50  # Distance matters less than for coins
+
+        for item in items:
+            # Skip if item is too far behind or too far ahead
+            x_dist = item.x - bird_x
+            if x_dist < -5 or x_dist >= ITEM_SEARCH_DISTANCE:
+                continue
+
+            y_dist = item.y - state.y
+            dist_sq = x_dist * x_dist + y_dist * y_dist
+
+            # Identify item type using isinstance
+            if isinstance(item, Coin):
+                # Coins are neutral for base A* (subclasses can handle them)
+                continue
+            elif isinstance(item, PowerUp):
+                # PowerUp has is_debuff attribute
+                if item.is_debuff:
+                    # Penalize being near debuffs (speed_up, large)
+                    score += DEBUFF_PENALTY / (dist_sq + DISTANCE_WEIGHT)
+                else:
+                    # Reward being near buffs (shield, slow_motion, small)
+                    score -= BUFF_REWARD / (dist_sq + DISTANCE_WEIGHT)
+
+        return score
+
     def fallback_action(self, state, pipes):
         """
         Safe action (JUMP or NO_JUMP) to be in the middle of the gap.
