@@ -45,9 +45,9 @@ We chose to compare three prominent QD approaches—MAP-Elites, MCTS-QD, and Nov
 
 ### 3.1 Game Implementation
 
-We extended the classic Flappy Bird mechanics with additional gameplay elements:
+We extended the classic Flappy Bird mechanics with additional gameplay elements (power-ups and debuffs).
 
-**Core Mechanics:**
+**Mechanics:**
 
 - Continuous horizontal scrolling at 30 pixels/second
 - Gravity-based physics
@@ -226,6 +226,9 @@ All experiments were conducted with:
 
 - **Evaluation:** 3 AI bots (Aggressive, Reactive, Coin Collector)
 - **Archive dimensions:** 6×6 grid (36 behavioral cells)
+- Map Elites had 1000 iterations
+- MCTS had 36 iterations with 1000 simulations
+- Novelty Search had 2000 iterations
 
 ![PCG Algorithm Comparison](pcg_comparison_full.png)
 
