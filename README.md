@@ -166,6 +166,53 @@ Quality is computed from:
    - Power-up/buff distribution (~15% of pipes)
    - Variety bonus for diverse items
 
-## Results
+## Experiments and Results
+
+### Experimental Setup
+
+All experiments were conducted with:
+
+- **Evaluation:** 3 AI bots (Aggressive, Reactive, Coin Collector)
+- **Archive dimensions:** 6×6 grid (36 behavioral cells)
+- Map Elites had 1000 iterations
+- MCTS had 36 iterations with 1000 simulations
+- Novelty Search had 2000 iterations
 
 ![PCG Algorithm Comparison](pcg_comparison_full.png)
+
+### MAP-Elites Results
+
+**Observations:**
+
+- Consistently filled multiple behavioral niches
+- Generated levels span full spectrum from tight-sparse to loose-dense configurations
+- Quality scores stabilized after ~500 iterations
+- Best levels balanced all four quality components effectively
+
+### MCTS-QD Results
+
+**Observations:**
+
+- MCTS-QD showed bias toward behaviorally similar solutions due to tree structure
+- Computational cost higher than MAP-Elites due to tree maintenance
+- Effective for targeted generation within specific behavioral regions
+
+### Novelty Search Results
+
+**Observations:**
+
+- Excellent exploration of behavioral extremes
+- Some generated levels had lower quality scores but higher behavioral uniqueness
+- Effective for discovering edge cases and unexpected level configurations
+
+## Conclusions
+
+### Summary of Results
+
+This project successfully implemented and compared three quality-diversity algorithms for procedural level generation in a Flappy Bird-style game. Key findings:
+
+1. **Quality-diversity algorithms effectively balance exploration and optimization** in game content generation, producing diverse level sets with consistently high quality scores.
+
+2. **MAP-Elites achieved the best coverage-quality trade-off**, efficiently filling the behavioral space while maintaining quality standards.
+
+3. **Multi-bot evaluation provides robust quality assessment**, with different bot strategies exposing different level characteristics.
